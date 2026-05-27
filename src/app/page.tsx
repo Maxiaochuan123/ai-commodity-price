@@ -1,21 +1,9 @@
 import type { ReactNode } from "react";
 import { ArrowUpRight, BadgeCheck, MessageCircle, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { PriceCatalog } from "@/components/price-catalog";
-import { allProducts, contact, productGroups } from "@/data/products";
-
-const formatter = new Intl.NumberFormat("zh-CN", {
-  maximumFractionDigits: 1
-});
-
-function formatPrice(price: number) {
-  return formatter.format(price);
-}
+import { contact, productGroups } from "@/data/products";
 
 export default function Home() {
-  const productCount = allProducts.length;
-  const lowestPrice = Math.min(...allProducts.map((product) => product.agent));
-  const highestPrice = Math.max(...allProducts.map((product) => product.retail));
-
   return (
     <main className="price-page">
       <style dangerouslySetInnerHTML={{ __html: pageStyles }} />
@@ -47,12 +35,6 @@ export default function Home() {
                 ChatGPT、Claude、Google、Grok、Telegram 等产品价格集中展示，支持快速查看零售价与代理价。
               </p>
             </div>
-
-            <div className="metrics">
-              <Metric label="商品" value={`${productCount}`} />
-              <Metric label="代理起" value={`¥${formatPrice(lowestPrice)}`} />
-              <Metric label="最高价" value={`¥${formatPrice(highestPrice)}`} />
-            </div>
           </div>
         </div>
       </section>
@@ -67,15 +49,6 @@ export default function Home() {
         </div>
       </section>
     </main>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric">
-      <div className="metric-label">{label}</div>
-      <div className="metric-value">{value}</div>
-    </div>
   );
 }
 
@@ -174,72 +147,7 @@ const pageStyles = `
   }
 
   .hero-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
-    align-items: end;
-    gap: 32px;
-  }
-
-  .eyebrow {
-    display: inline-flex;
-    margin: 0 0 12px;
-    border: 1px solid #99f6e4;
-    border-radius: 8px;
-    background: #f0fdfa;
-    padding: 4px 12px;
-    color: #115e59;
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  h1 {
-    margin: 0;
     max-width: 760px;
-    color: #111827;
-    font-size: clamp(40px, 6vw, 56px);
-    line-height: 1.08;
-    letter-spacing: 0;
-  }
-
-  .hero-copy {
-    max-width: 680px;
-    margin: 16px 0 0;
-    color: #475569;
-    font-size: 16px;
-    line-height: 1.75;
-  }
-
-  .metrics {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    overflow: hidden;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    background: #ffffff;
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-  }
-
-  .metric {
-    padding: 20px 16px;
-    border-right: 1px solid #e5e7eb;
-  }
-
-  .metric:last-child {
-    border-right: 0;
-  }
-
-  .metric-label {
-    color: #64748b;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .metric-value {
-    margin-top: 4px;
-    color: #111827;
-    font-size: 26px;
-    font-weight: 800;
-    line-height: 1.2;
   }
 
   .catalog {
@@ -525,21 +433,15 @@ const pageStyles = `
   }
 
   @media (max-width: 900px) {
-    .hero-grid,
     .toolbar-inner,
     .trust-grid {
       grid-template-columns: 1fr;
     }
 
-    .hero-grid,
     .toolbar-inner {
       display: flex;
       flex-direction: column;
       align-items: stretch;
-    }
-
-    .metrics {
-      max-width: 460px;
     }
 
     .search-wrap {
@@ -572,18 +474,6 @@ const pageStyles = `
 
     h1 {
       font-size: 40px;
-    }
-
-    .metrics {
-      width: 100%;
-    }
-
-    .metric {
-      padding: 16px 12px;
-    }
-
-    .metric-value {
-      font-size: 22px;
     }
 
     .catalog-toolbar {
