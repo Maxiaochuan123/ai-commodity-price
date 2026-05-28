@@ -1,52 +1,263 @@
 "use client";
 
-import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Copy, ExternalLink } from "lucide-react";
+import type { MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAdmin } from "@/components/admin-shell";
+import type { Product } from "@/data/products";
 import type { ProductGroup } from "@/data/products";
+import type { PriceMap } from "@/lib/pricing";
 
 const formatter = new Intl.NumberFormat("zh-CN", {
   maximumFractionDigits: 1
 });
 
+type CatalogProduct = Omit<Product, "cost"> & {
+  cost?: number;
+};
+
+type CatalogGroup = Omit<ProductGroup, "products" | "subgroups"> & {
+  products: CatalogProduct[];
+  subgroups?: {
+    name: string;
+    products: CatalogProduct[];
+  }[];
+};
+
 function formatPrice(price: number) {
   return formatter.format(price);
 }
 
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall back to legacy copy.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-9999px";
+  textarea.style.left = "-9999px";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+
+  return copied;
+}
+
 export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
-  const [query, setQuery] = useState("");
-  const keyword = query.trim().toLowerCase();
+  const admin = useAdmin();
+  const [catalogGroups, setCatalogGroups] = useState<CatalogGroup[]>(groups);
+  const [baselinePrices, setBaselinePrices] = useState<PriceMap>(() => getPriceMapFromGroups(groups));
+  const [saving, setSaving] = useState(false);
+  const [activeGroupId, setActiveGroupId] = useState(groups[0]?.id ?? "");
+  const tabListRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const manualScrollUntilRef = useRef(0);
+  const groupIds = useMemo(() => catalogGroups.map((group) => group.id).join("|"), [catalogGroups]);
+  const currentPrices = getPriceMapFromGroups(catalogGroups);
+  const dirty = JSON.stringify(currentPrices) !== JSON.stringify(baselinePrices);
 
-  const filteredGroups = useMemo(() => {
-    if (!keyword) return groups;
+  const scrollToGroup = useCallback((groupId: string, behavior: ScrollBehavior) => {
+    const section = document.getElementById(groupId);
+    if (!section) return;
 
-    return groups
-      .map((group) => ({
-        ...group,
-        products: group.products.filter((product) =>
-          `${group.name} ${product.name}`.toLowerCase().includes(keyword)
-        )
-      }))
-      .filter((group) => group.products.length > 0);
-  }, [groups, keyword]);
+    const toolbarHeight = toolbarRef.current?.offsetHeight ?? 0;
+    const top = section.getBoundingClientRect().top + window.scrollY - toolbarHeight - 24;
+    window.scrollTo({ top: Math.max(0, top), behavior });
+  }, []);
+
+  useEffect(() => {
+    async function loadPrices() {
+      const response = await fetch("/api/prices", { cache: "no-store" });
+      const data = (await response.json()) as { groups: CatalogGroup[]; isAdmin: boolean };
+      setCatalogGroups(data.groups);
+      setBaselinePrices(getPriceMapFromGroups(data.groups));
+    }
+
+    void loadPrices();
+  }, [admin.isAdmin]);
+
+  const savePrices = useCallback(async () => {
+    setSaving(true);
+    try {
+      const response = await fetch("/api/admin/prices", {
+        body: JSON.stringify({ prices: getPriceMapFromGroups(catalogGroups) }),
+        headers: { "Content-Type": "application/json" },
+        method: "PUT"
+      });
+
+      if (!response.ok) {
+        admin.setToast("保存失败，请重新登录");
+        return;
+      }
+
+      const data = (await response.json()) as { changes: unknown; prices: PriceMap };
+      setBaselinePrices(data.prices);
+      admin.setToast(data.changes ? "已保存，访客将看到价格更新提醒" : "已保存，仅内部成本发生变化");
+    } finally {
+      setSaving(false);
+    }
+  }, [admin, catalogGroups]);
+
+  const resetPrices = useCallback(() => {
+    setCatalogGroups((currentGroups) => applyPriceMapToGroups(currentGroups, baselinePrices));
+  }, [baselinePrices]);
+
+  useEffect(() => {
+    admin.registerCatalog({
+      dirty,
+      reset: resetPrices,
+      save: savePrices,
+      saving
+    });
+
+    return () => admin.registerCatalog(null);
+  }, [admin, dirty, resetPrices, savePrices, saving]);
+
+  useEffect(() => {
+    const sections = groupIds
+      .split("|")
+      .filter(Boolean)
+      .map((groupId) => {
+        const element = document.getElementById(groupId);
+        return element ? { id: groupId, element } : null;
+      })
+      .filter((section): section is { id: string; element: HTMLElement } => Boolean(section));
+
+    if (sections.length === 0) return;
+
+    let frame = 0;
+    let lastScrollY = -1;
+    let lastViewportWidth = -1;
+    let lastViewportHeight = -1;
+
+    const updateActiveGroup = () => {
+      if (manualScrollUntilRef.current > Date.now()) return;
+
+      const toolbarHeight = toolbarRef.current?.offsetHeight ?? 0;
+      const extraOffset = window.innerWidth <= 720 ? 72 : 64;
+      const anchor = window.scrollY + toolbarHeight + extraOffset;
+      const pageBottom = window.scrollY + window.innerHeight;
+      const documentBottom = document.documentElement.scrollHeight - 8;
+
+      let nextActiveGroupId = sections[0]?.id ?? "";
+
+      if (pageBottom >= documentBottom) {
+        nextActiveGroupId = sections[sections.length - 1]?.id ?? nextActiveGroupId;
+      } else {
+        for (const section of sections) {
+          const top = section.element.getBoundingClientRect().top + window.scrollY;
+          if (top <= anchor) {
+            nextActiveGroupId = section.id;
+          } else {
+            break;
+          }
+        }
+      }
+
+      setActiveGroupId((currentGroupId) => (currentGroupId === nextActiveGroupId ? currentGroupId : nextActiveGroupId));
+    };
+
+    const watchScroll = () => {
+      const hasViewportChanged =
+        lastViewportWidth !== window.innerWidth || lastViewportHeight !== window.innerHeight;
+      const hasScrollChanged = lastScrollY !== window.scrollY;
+
+      if (hasViewportChanged || hasScrollChanged) {
+        lastScrollY = window.scrollY;
+        lastViewportWidth = window.innerWidth;
+        lastViewportHeight = window.innerHeight;
+        updateActiveGroup();
+      }
+
+      frame = window.requestAnimationFrame(watchScroll);
+    };
+
+    const handleHashChange = () => {
+      const nextActiveGroupId = window.location.hash.replace("#", "");
+      if (!nextActiveGroupId) return;
+
+      setActiveGroupId(nextActiveGroupId);
+      manualScrollUntilRef.current = Date.now() + 700;
+      scrollToGroup(nextActiveGroupId, "auto");
+    };
+
+    updateActiveGroup();
+    frame = window.requestAnimationFrame(watchScroll);
+    window.addEventListener("hashchange", handleHashChange);
+
+    const initialGroupId = window.location.hash.replace("#", "");
+    if (initialGroupId && sections.some((section) => section.id === initialGroupId)) {
+      setActiveGroupId(initialGroupId);
+      manualScrollUntilRef.current = Date.now() + 700;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => scrollToGroup(initialGroupId, "auto"));
+      });
+    }
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, [groupIds, scrollToGroup]);
+
+  useEffect(() => {
+    const activeTab = tabListRef.current?.querySelector<HTMLAnchorElement>(`[data-group-id="${activeGroupId}"]`);
+    const tabList = tabListRef.current;
+    if (!activeTab || !tabList) return;
+
+    const targetLeft = activeTab.offsetLeft - (tabList.clientWidth - activeTab.clientWidth) / 2;
+    tabList.scrollTo({ left: Math.max(0, targetLeft), behavior: "auto" });
+  }, [activeGroupId]);
+
+  function handleTabClick(event: MouseEvent<HTMLAnchorElement>, groupId: string) {
+    event.preventDefault();
+
+    const section = document.getElementById(groupId);
+    if (!section) return;
+
+    manualScrollUntilRef.current = Date.now() + 700;
+    setActiveGroupId(groupId);
+
+    window.history.replaceState(null, "", `#${groupId}`);
+    scrollToGroup(groupId, "smooth");
+  }
+
+  function updatePrice(productId: string, field: keyof PriceMap[string], value: number) {
+    setCatalogGroups((currentGroups) => updateProductPrice(currentGroups, productId, field, value));
+  }
 
   return (
-    <section className="container catalog">
-      <div className="catalog-toolbar">
-        <div className="toolbar-inner">
-          <label className="search-wrap">
-            <Search className="icon-sm" />
-            <input
-              className="search-input"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索产品名称"
-              type="search"
-              value={query}
-            />
-          </label>
-
-          <div className="category-tabs">
-            {groups.map((group) => (
-              <a className="category-tab" href={`#${group.id}`} key={group.id}>
+    <>
+      <div className="catalog-toolbar" ref={toolbarRef}>
+        <div className="catalog-toolbar-shell">
+          <div className="category-tabs" aria-label="产品分类" ref={tabListRef}>
+            {catalogGroups.map((group) => (
+              <a
+                aria-current={activeGroupId === group.id ? "true" : undefined}
+                className={activeGroupId === group.id ? "category-tab is-active" : "category-tab"}
+                data-group-id={group.id}
+                href={`#${group.id}`}
+                key={group.id}
+                onClick={(event) => handleTabClick(event, group.id)}
+              >
                 {group.name}
               </a>
             ))}
@@ -54,54 +265,232 @@ export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
         </div>
       </div>
 
-      <div className="group-list">
-        {filteredGroups.length === 0 ? (
-          <div className="empty-state">没有找到匹配的产品</div>
-        ) : (
-          filteredGroups.map((group) => (
+      <section className="container catalog" id="catalog">
+        <div className="group-list">
+          {catalogGroups.map((group) => (
             <section className="product-group" id={group.id} key={group.id}>
               <div className="group-header">
                 <h2>{group.name}</h2>
-                <p>{group.products.length} 个商品</p>
+                <p>{group.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
               </div>
 
               <div className="table-shell">
-                <table className="price-table">
-                  <thead>
-                    <tr>
-                      <th>商品</th>
-                      <th className="price-cell">零售</th>
-                      <th className="price-cell agent-price">代理</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.products.map((product) => (
-                      <tr key={product.name}>
-                        <td className="product-name">{product.name}</td>
-                        <td className="price-cell">¥{formatPrice(product.retail)}</td>
-                        <td className="price-cell agent-price">¥{formatPrice(product.agent)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <ProductTable
+                  editMode={admin.editMode}
+                  isAdmin={admin.isAdmin}
+                  onPriceChange={updatePrice}
+                  products={group.products}
+                />
               </div>
 
-              <div className="mobile-cards">
-                {group.products.map((product) => (
-                  <article className="product-card" key={product.name}>
-                    <h3>{product.name}</h3>
-                    <div className="card-prices">
-                      <PriceBlock label="零售" value={product.retail} />
-                      <PriceBlock highlight label="代理" value={product.agent} />
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <ProductCards
+                editMode={admin.editMode}
+                isAdmin={admin.isAdmin}
+                onPriceChange={updatePrice}
+                products={group.products}
+              />
+
+              {group.subgroups?.map((subgroup) => (
+                <div className="product-subgroup" key={subgroup.name}>
+                  <div className="group-header subgroup-header">
+                    <h3>{subgroup.name}</h3>
+                    <p>{subgroup.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
+                  </div>
+
+                  <div className="table-shell">
+                    <ProductTable
+                      editMode={admin.editMode}
+                      isAdmin={admin.isAdmin}
+                      onPriceChange={updatePrice}
+                      products={subgroup.products}
+                    />
+                  </div>
+
+                  <ProductCards
+                    editMode={admin.editMode}
+                    isAdmin={admin.isAdmin}
+                    onPriceChange={updatePrice}
+                    products={subgroup.products}
+                  />
+                </div>
+              ))}
             </section>
-          ))
-        )}
-      </div>
-    </section>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function ProductTable({
+  editMode,
+  isAdmin,
+  onPriceChange,
+  products
+}: {
+  editMode: boolean;
+  isAdmin: boolean;
+  onPriceChange: (productId: string, field: keyof PriceMap[string], value: number) => void;
+  products: CatalogProduct[];
+}) {
+  return (
+    <table className="price-table">
+      <thead>
+        <tr>
+          <th>商品</th>
+          {isAdmin ? <th className="price-cell">成本</th> : null}
+          <th className="price-cell">零售</th>
+          <th className="price-cell agent-price">代理</th>
+          {isAdmin ? (
+            <>
+              <th className="price-cell">零售利润</th>
+              <th className="price-cell agent-price">代理利润</th>
+            </>
+          ) : null}
+        </tr>
+      </thead>
+      <tbody>
+        {products.map((product) => (
+          <tr key={product.id}>
+            <td className="product-name">
+              <ProductName product={product} />
+            </td>
+            {isAdmin ? (
+              <td className="price-cell">
+                {editMode ? (
+                  <PriceInput onChange={(value) => onPriceChange(product.id, "cost", value)} value={product.cost ?? 0} />
+                ) : (
+                  `¥${formatPrice(product.cost ?? 0)}`
+                )}
+              </td>
+            ) : null}
+            <td className="price-cell">
+              {isAdmin && editMode ? (
+                <PriceInput onChange={(value) => onPriceChange(product.id, "retail", value)} value={product.retail} />
+              ) : (
+                `¥${formatPrice(product.retail)}`
+              )}
+            </td>
+            <td className="price-cell agent-price">
+              {isAdmin && editMode ? (
+                <PriceInput onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
+              ) : (
+                `¥${formatPrice(product.agent)}`
+              )}
+            </td>
+            {isAdmin ? (
+              <>
+                <td className="price-cell">¥{formatPrice(product.retail - (product.cost ?? 0))}</td>
+                <td className="price-cell agent-price">¥{formatPrice(product.agent - (product.cost ?? 0))}</td>
+              </>
+            ) : null}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ProductCards({
+  editMode,
+  isAdmin,
+  onPriceChange,
+  products
+}: {
+  editMode: boolean;
+  isAdmin: boolean;
+  onPriceChange: (productId: string, field: keyof PriceMap[string], value: number) => void;
+  products: CatalogProduct[];
+}) {
+  return (
+    <div className="mobile-cards">
+      {products.map((product) => (
+        <article className="product-card" key={product.id}>
+          <h3>
+            <ProductName product={product} />
+          </h3>
+          <div className="card-prices">
+            {isAdmin ? (
+              <>
+                {editMode ? (
+                  <>
+                    <EditablePriceBlock label="成本" onChange={(value) => onPriceChange(product.id, "cost", value)} value={product.cost ?? 0} />
+                    <EditablePriceBlock label="零售" onChange={(value) => onPriceChange(product.id, "retail", value)} value={product.retail} />
+                    <EditablePriceBlock highlight label="代理" onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
+                  </>
+                ) : (
+                  <>
+                    <PriceBlock label="成本" value={product.cost ?? 0} />
+                    <PriceBlock label="零售" value={product.retail} />
+                    <PriceBlock highlight label="代理" value={product.agent} />
+                  </>
+                )}
+                <PriceBlock label="零售利润" value={product.retail - (product.cost ?? 0)} />
+                <PriceBlock highlight label="代理利润" value={product.agent - (product.cost ?? 0)} />
+              </>
+            ) : (
+              <>
+                <PriceBlock label="零售" value={product.retail} />
+                <PriceBlock highlight label="代理" value={product.agent} />
+              </>
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ProductName({ product }: { product: CatalogProduct }) {
+  if (!product.docUrl) return <span>{product.name}</span>;
+
+  return (
+    <span className="product-entry">
+      <span className="product-entry-name">{product.name}</span>
+      <span className="product-doc-actions">
+        <a className="product-doc-link" href={product.docUrl} rel="noreferrer" target="_blank">
+          说明
+          <ExternalLink className="icon-xs" />
+        </a>
+        <CopyDocButton url={product.docUrl} />
+      </span>
+    </span>
+  );
+}
+
+function CopyDocButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  async function handleCopy(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+
+    const success = await copyText(url);
+    if (!success) return;
+
+    setCopied(true);
+    timerRef.current = window.setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <button
+      aria-label="复制说明链接"
+      className={copied ? "product-copy-button is-copied" : "product-copy-button"}
+      onClick={handleCopy}
+      type="button"
+    >
+      {copied ? "已复制" : "复制"}
+      <Copy className="icon-xs" />
+    </button>
   );
 }
 
@@ -112,4 +501,97 @@ function PriceBlock({ highlight, label, value }: { highlight?: boolean; label: s
       <div className="price-value">¥{formatPrice(value)}</div>
     </div>
   );
+}
+
+function EditablePriceBlock({
+  highlight,
+  label,
+  onChange,
+  value
+}: {
+  highlight?: boolean;
+  label: string;
+  onChange: (value: number) => void;
+  value: number;
+}) {
+  return (
+    <div className={highlight ? "price-block is-agent" : "price-block"}>
+      <div className="price-label">{label}</div>
+      <PriceInput onChange={onChange} value={value} />
+    </div>
+  );
+}
+
+function PriceInput({ onChange, value }: { onChange: (value: number) => void; value: number }) {
+  return (
+    <label className="price-input-wrap">
+      <span>¥</span>
+      <input
+        min="0"
+        onChange={(event) => onChange(Number(event.target.value))}
+        step="0.1"
+        type="number"
+        value={Number.isFinite(value) ? value : 0}
+      />
+    </label>
+  );
+}
+
+function getPriceMapFromGroups(groups: CatalogGroup[] | ProductGroup[]) {
+  const entries: [string, PriceMap[string]][] = [];
+
+  for (const group of groups) {
+    for (const product of group.products) {
+      entries.push([product.id, { agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
+    }
+    for (const subgroup of group.subgroups ?? []) {
+      for (const product of subgroup.products) {
+        entries.push([product.id, { agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
+      }
+    }
+  }
+
+  return Object.fromEntries(entries) as PriceMap;
+}
+
+function updateProductPrice(
+  groups: CatalogGroup[],
+  productId: string,
+  field: keyof PriceMap[string],
+  value: number
+) {
+  const updateProduct = (product: CatalogProduct) =>
+    product.id === productId
+      ? {
+          ...product,
+          [field]: Number.isFinite(value) ? value : 0
+        }
+      : product;
+
+  return groups.map((group) => ({
+    ...group,
+    products: group.products.map(updateProduct),
+    subgroups: group.subgroups?.map((subgroup) => ({
+      ...subgroup,
+      products: subgroup.products.map(updateProduct)
+    }))
+  }));
+}
+
+function applyPriceMapToGroups(groups: CatalogGroup[], prices: PriceMap) {
+  const applyProduct = (product: CatalogProduct) => ({
+    ...product,
+    agent: prices[product.id]?.agent ?? product.agent,
+    cost: prices[product.id]?.cost ?? product.cost,
+    retail: prices[product.id]?.retail ?? product.retail
+  });
+
+  return groups.map((group) => ({
+    ...group,
+    products: group.products.map(applyProduct),
+    subgroups: group.subgroups?.map((subgroup) => ({
+      ...subgroup,
+      products: subgroup.products.map(applyProduct)
+    }))
+  }));
 }
