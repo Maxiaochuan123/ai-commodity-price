@@ -110,7 +110,7 @@ export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
 
       const data = (await response.json()) as { changes: unknown; prices: PriceMap };
       setBaselinePrices(data.prices);
-      admin.setToast(data.changes ? "已保存，访客将看到价格更新提醒" : "已保存，仅内部成本发生变化");
+      admin.setToast(data.changes ? "已保存，访客将看到价格更新提醒" : "已保存，未产生价格变动提醒");
     } finally {
       setSaving(false);
     }
@@ -244,6 +244,10 @@ export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
     setCatalogGroups((currentGroups) => updateProductPrice(currentGroups, productId, field, value));
   }
 
+  function updateStatus(productId: string, active: boolean) {
+    setCatalogGroups((currentGroups) => updateProductStatus(currentGroups, productId, active));
+  }
+
   return (
     <>
       <div className="catalog-toolbar" ref={toolbarRef}>
@@ -279,6 +283,7 @@ export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
                   editMode={admin.editMode}
                   isAdmin={admin.isAdmin}
                   onPriceChange={updatePrice}
+                  onStatusChange={updateStatus}
                   products={group.products}
                 />
               </div>
@@ -287,6 +292,7 @@ export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
                 editMode={admin.editMode}
                 isAdmin={admin.isAdmin}
                 onPriceChange={updatePrice}
+                onStatusChange={updateStatus}
                 products={group.products}
               />
 
@@ -302,6 +308,7 @@ export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
                       editMode={admin.editMode}
                       isAdmin={admin.isAdmin}
                       onPriceChange={updatePrice}
+                      onStatusChange={updateStatus}
                       products={subgroup.products}
                     />
                   </div>
@@ -310,6 +317,7 @@ export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
                     editMode={admin.editMode}
                     isAdmin={admin.isAdmin}
                     onPriceChange={updatePrice}
+                    onStatusChange={updateStatus}
                     products={subgroup.products}
                   />
                 </div>
@@ -326,11 +334,13 @@ function ProductTable({
   editMode,
   isAdmin,
   onPriceChange,
+  onStatusChange,
   products
 }: {
   editMode: boolean;
   isAdmin: boolean;
   onPriceChange: (productId: string, field: keyof PriceMap[string], value: number) => void;
+  onStatusChange: (productId: string, active: boolean) => void;
   products: CatalogProduct[];
 }) {
   return (
@@ -338,6 +348,7 @@ function ProductTable({
       <thead>
         <tr>
           <th>商品</th>
+          {isAdmin ? <th className="status-cell">状态</th> : null}
           {isAdmin ? <th className="price-cell">成本</th> : null}
           <th className="price-cell">零售</th>
           <th className="price-cell agent-price">代理</th>
@@ -351,10 +362,19 @@ function ProductTable({
       </thead>
       <tbody>
         {products.map((product) => (
-          <tr key={product.id}>
+          <tr className={product.active === false ? "is-offline" : undefined} key={product.id}>
             <td className="product-name">
               <ProductName product={product} />
             </td>
+            {isAdmin ? (
+              <td className="status-cell">
+                {editMode ? (
+                  <StatusToggle active={product.active !== false} onChange={(active) => onStatusChange(product.id, active)} />
+                ) : (
+                  <StatusBadge active={product.active !== false} />
+                )}
+              </td>
+            ) : null}
             {isAdmin ? (
               <td className="price-cell">
                 {editMode ? (
@@ -395,20 +415,31 @@ function ProductCards({
   editMode,
   isAdmin,
   onPriceChange,
+  onStatusChange,
   products
 }: {
   editMode: boolean;
   isAdmin: boolean;
   onPriceChange: (productId: string, field: keyof PriceMap[string], value: number) => void;
+  onStatusChange: (productId: string, active: boolean) => void;
   products: CatalogProduct[];
 }) {
   return (
     <div className="mobile-cards">
       {products.map((product) => (
-        <article className="product-card" key={product.id}>
+        <article className={product.active === false ? "product-card is-offline" : "product-card"} key={product.id}>
           <h3>
             <ProductName product={product} />
           </h3>
+          {isAdmin ? (
+            <div className="card-status">
+              {editMode ? (
+                <StatusToggle active={product.active !== false} onChange={(active) => onStatusChange(product.id, active)} />
+              ) : (
+                <StatusBadge active={product.active !== false} />
+              )}
+            </div>
+          ) : null}
           <div className="card-prices">
             {isAdmin ? (
               <>
@@ -442,11 +473,23 @@ function ProductCards({
 }
 
 function ProductName({ product }: { product: CatalogProduct }) {
-  if (!product.docUrl) return <span>{product.name}</span>;
+  const offlineBadge = product.active === false ? <span className="offline-badge">已下架</span> : null;
+
+  if (!product.docUrl) {
+    return (
+      <span className="product-entry-name">
+        {product.name}
+        {offlineBadge}
+      </span>
+    );
+  }
 
   return (
     <span className="product-entry">
-      <span className="product-entry-name">{product.name}</span>
+      <span className="product-entry-name">
+        {product.name}
+        {offlineBadge}
+      </span>
       <span className="product-doc-actions">
         <a className="product-doc-link" href={product.docUrl} rel="noreferrer" target="_blank">
           说明
@@ -455,6 +498,26 @@ function ProductName({ product }: { product: CatalogProduct }) {
         <CopyDocButton url={product.docUrl} />
       </span>
     </span>
+  );
+}
+
+function StatusBadge({ active }: { active: boolean }) {
+  return <span className={active ? "status-badge is-active" : "status-badge"}>{active ? "上架" : "下架"}</span>;
+}
+
+function StatusToggle({ active, onChange }: { active: boolean; onChange: (active: boolean) => void }) {
+  return (
+    <button
+      aria-pressed={active}
+      className={active ? "status-toggle is-active" : "status-toggle"}
+      onClick={() => onChange(!active)}
+      type="button"
+    >
+      <span className="switch-track">
+        <span className="switch-thumb" />
+      </span>
+      <span className="switch-label">{active ? "上架" : "下架"}</span>
+    </button>
   );
 }
 
@@ -542,16 +605,35 @@ function getPriceMapFromGroups(groups: CatalogGroup[] | ProductGroup[]) {
 
   for (const group of groups) {
     for (const product of group.products) {
-      entries.push([product.id, { agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
+      entries.push([product.id, { active: product.active ?? true, agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
     }
     for (const subgroup of group.subgroups ?? []) {
       for (const product of subgroup.products) {
-        entries.push([product.id, { agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
+        entries.push([product.id, { active: product.active ?? true, agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
       }
     }
   }
 
   return Object.fromEntries(entries) as PriceMap;
+}
+
+function updateProductStatus(groups: CatalogGroup[], productId: string, active: boolean) {
+  const updateProduct = (product: CatalogProduct) =>
+    product.id === productId
+      ? {
+          ...product,
+          active
+        }
+      : product;
+
+  return groups.map((group) => ({
+    ...group,
+    products: group.products.map(updateProduct),
+    subgroups: group.subgroups?.map((subgroup) => ({
+      ...subgroup,
+      products: subgroup.products.map(updateProduct)
+    }))
+  }));
 }
 
 function updateProductPrice(
@@ -581,6 +663,7 @@ function updateProductPrice(
 function applyPriceMapToGroups(groups: CatalogGroup[], prices: PriceMap) {
   const applyProduct = (product: CatalogProduct) => ({
     ...product,
+    active: prices[product.id]?.active ?? product.active ?? true,
     agent: prices[product.id]?.agent ?? product.agent,
     cost: prices[product.id]?.cost ?? product.cost,
     retail: prices[product.id]?.retail ?? product.retail

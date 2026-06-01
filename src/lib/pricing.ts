@@ -2,6 +2,7 @@ import { productGroups } from "@/data/products";
 import type { Product, ProductGroup } from "@/data/products";
 
 export type PriceRecord = {
+  active: boolean;
   agent: number;
   cost: number;
   retail: number;
@@ -56,6 +57,7 @@ export function getInitialPriceMap() {
       product.id,
       {
         agent: product.agent,
+        active: product.active ?? true,
         cost: product.cost,
         retail: product.retail
       }
@@ -71,6 +73,7 @@ export function mergePriceMap(input?: PriceMap | null) {
     Object.entries(initial).map(([productId, defaults]) => [
       productId,
       {
+        active: typeof input[productId]?.active === "boolean" ? input[productId].active : defaults.active,
         agent: normalizePrice(input[productId]?.agent, defaults.agent),
         cost: normalizePrice(input[productId]?.cost, defaults.cost),
         retail: normalizePrice(input[productId]?.retail, defaults.retail)
@@ -84,6 +87,7 @@ export function buildCatalog(priceMap: PriceMap, includeCost: boolean) {
     const price = priceMap[product.id] ?? product;
     return {
       ...product,
+      active: price.active,
       agent: price.agent,
       cost: includeCost ? price.cost : undefined,
       retail: price.retail

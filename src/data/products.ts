@@ -1,6 +1,7 @@
 export type Product = {
   id: string;
   name: string;
+  active?: boolean;
   cost: number;
   retail: number;
   agent: number;
@@ -30,10 +31,18 @@ export const productGroups: ProductGroup[] = [
     products: [
       {
         id: "chatgpt-codex-phone-code",
-        name: "Codex 手机号接码",
+        name: "Codex 手机号接码【虚拟卡 一次性】",
         cost: 0.9,
         retail: 10,
         agent: 2.5,
+        docUrl: "https://www.yuque.com/u8042174/kb/pog9pz364owob5bg?singleDoc# 《Codex 手机接码教程》"
+      },
+      {
+        id: "chatgpt-codex-phone-code-2",
+        name: "Codex 手机号接码【实体卡 长效31~90天】【无惧二次验证】",
+        cost: 6,
+        retail: 16,
+        agent: 9,
         docUrl: "https://www.yuque.com/u8042174/kb/pog9pz364owob5bg?singleDoc# 《Codex 手机接码教程》"
       },
       {
@@ -46,7 +55,7 @@ export const productGroups: ProductGroup[] = [
       },
       {
         id: "chatgpt-plus-account-1m-no-warranty",
-        name: "GPT Plus 1个月成品号【100单平均 大部分存活超过半个月 2~3单 4-5天】【无质保，介意勿购】",
+        name: "GPT Plus 1个月成品号 10单起售【100单 中 90% 活超过半个月 10% 一周左右】【无质保，介意勿购】",
         cost: 25,
         retail: 48,
         agent: 30
