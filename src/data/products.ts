@@ -2,10 +2,20 @@ export type Product = {
   id: string;
   name: string;
   active?: boolean;
+  channel?: ProductChannel;
   cost: number;
   retail: number;
   agent: number;
   docUrl?: string;
+};
+
+export type ProductChannel = {
+  contacts?: {
+    label: string;
+    value: string;
+  }[];
+  name: string;
+  storeUrl?: string;
 };
 
 export type ProductGroup = {
@@ -24,7 +34,79 @@ export const contact = {
   proofText: "真实成交图片"
 };
 
-export const productGroups: ProductGroup[] = [
+const productChannels: Record<string, ProductChannel> = {
+  "chatgpt-codex-phone-code": {
+    contacts: [{ label: "TG", value: "https://t.me/freeteamxz" }],
+    name: "GPT专卖-cw",
+    storeUrl: "https://caowo.store/cat/2"
+  },
+  "chatgpt-codex-phone-code-2": {
+    contacts: [{ label: "QQ群", value: "1085440916" }],
+    name: "Plus源头",
+    storeUrl: "https://pay.ldxp.cn/shop/IY16OXB7"
+  },
+  "chatgpt-plus-account-1m-no-warranty": {
+    contacts: [{ label: "QQ号", value: "634016189" }],
+    name: "QQ渠道"
+  },
+  "chatgpt-plus-direct-1m-standard": {
+    contacts: [{ label: "QQ号", value: "3488303242" }],
+    name: "柠檬西瓜",
+    storeUrl: "https://lemon-watermelon.com/user/recharge"
+  },
+  "grok-supergrok-direct-1m": {
+    contacts: [{ label: "QQ号", value: "3488303242" }],
+    name: "柠檬西瓜",
+    storeUrl: "https://lemon-watermelon.com/user/recharge"
+  },
+  "claude-channel2-max-5x-account-1m-kyc": {
+    contacts: [
+      { label: "微信号", value: "q1796ty，ye73u2g" },
+      { label: "QQ号", value: "3910731708" }
+    ],
+    name: "无风"
+  },
+  "claude-channel2-max-20x-account-1m-kyc": {
+    contacts: [
+      { label: "微信号", value: "q1796ty，ye73u2g" },
+      { label: "QQ号", value: "3910731708" }
+    ],
+    name: "无风"
+  },
+  "grok-supergrok-direct-1y": {
+    contacts: [{ label: "QQ号", value: "2393739708" }],
+    name: "网流工作室",
+    storeUrl: "https://pay.ldxp.cn/shop/SIS7JIN8"
+  }
+};
+
+const planktonChannel: ProductChannel = {
+  contacts: [
+    { label: "微信", value: "rc336027" },
+    { label: "QQ群", value: "1102757222" }
+  ],
+  name: "痞老板",
+  storeUrl: "https://pay.ldxp.cn/shop/plankton"
+};
+
+for (const productId of [
+  "chatgpt-plus-direct-1m-ios-tr",
+  "chatgpt-cyber-tac-kyc",
+  "chatgpt-pro-20x-direct-1m",
+  "chatgpt-pro-5x-direct-1m",
+  "claude-kyc",
+  "claude-max-20x-account-1m-no-warranty",
+  "claude-max-20x-account-1m-preorder",
+  "claude-max-5x-account-1m-preorder",
+  "claude-pro-direct-1m-standard",
+  "google-gmail-old-22-24",
+  "google-gemini-pro-direct-1y-pixel",
+  "google-gemini-pro-account-1y"
+]) {
+  productChannels[productId] = planktonChannel;
+}
+
+const rawProductGroups: ProductGroup[] = [
   {
     id: "chatgpt",
     name: "ChatGPT 系列",
@@ -149,11 +231,11 @@ export const productGroups: ProductGroup[] = [
     ],
     subgroups: [
       {
-        name: "渠道二",
+        name: "Claude 系列【渠道二】",
         products: [
           {
             id: "claude-channel2-max-5x-account-1m-kyc",
-            name: "Claude MAX 5x 1个月成品号【质保订阅30天】【已过KYC认证】",
+            name: "Claude MAX 5x 1个月代充/成品号【质保订阅30天】【已过KYC认证】",
             cost: 790,
             retail: 968,
             agent: 868,
@@ -161,7 +243,7 @@ export const productGroups: ProductGroup[] = [
           },
           {
             id: "claude-channel2-max-20x-account-1m-kyc",
-            name: "Claude MAX 20x 1个月成品号【质保订阅30天】【已过KYC认证】【可开发票】",
+            name: "Claude MAX 20x 1个月代充/成品号【质保订阅30天】【已过KYC认证】【可开发票】",
             cost: 950,
             retail: 1298,
             agent: 948,
@@ -234,6 +316,22 @@ export const productGroups: ProductGroup[] = [
     ]
   }
 ];
+
+export const productGroups: ProductGroup[] = rawProductGroups.map((group) => ({
+  ...group,
+  products: group.products.map(withChannel),
+  subgroups: group.subgroups?.map((subgroup) => ({
+    ...subgroup,
+    products: subgroup.products.map(withChannel)
+  }))
+}));
+
+function withChannel(product: Product): Product {
+  return {
+    ...product,
+    channel: productChannels[product.id]
+  };
+}
 
 export const allProducts = productGroups.flatMap((group) =>
   [...group.products, ...(group.subgroups ?? []).flatMap((subgroup) => subgroup.products)].map((product) => ({

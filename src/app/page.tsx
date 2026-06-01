@@ -39,7 +39,7 @@ export default function Home() {
                 <span className="live-dot" />
                 实时补货 · 说明先行
               </div>
-              <div className="signal-card-title">AI 工具补给站</div>
+              <div className="signal-card-title">官方正规直充</div>
               <div className="signal-card-copy">ChatGPT / Claude / Gemini / Grok / Telegram，一页快速查价。</div>
             </div>
 
@@ -723,6 +723,97 @@ const pageStyles = `
     text-align: center;
   }
 
+  .channel-cell {
+    width: 168px;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.55;
+    vertical-align: middle;
+  }
+
+  .channel-info {
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+  }
+
+  .channel-name {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #fed7aa;
+    border-radius: 999px;
+    background: #fff7ed;
+    padding: 2px 8px;
+    color: #9a3412;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  .channel-name:hover,
+  .channel-name:focus-visible {
+    border-color: #fb923c;
+    background: #ffedd5;
+    outline: none;
+  }
+
+  .channel-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: #0f766e;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .channel-link:hover,
+  .channel-link:focus-visible {
+    color: #0d9488;
+    outline: none;
+    text-decoration: underline;
+  }
+
+  .channel-contact,
+  .channel-empty {
+    color: #64748b;
+    font-weight: 700;
+    word-break: break-word;
+  }
+
+  .channel-modal {
+    width: min(100%, 520px);
+  }
+
+  .channel-modal-body {
+    display: grid;
+    gap: 12px;
+  }
+
+  .channel-store-link {
+    width: fit-content;
+    border: 1px solid #ccfbf1;
+    border-radius: 999px;
+    background: #f0fdfa;
+    padding: 8px 12px;
+  }
+
+  .channel-modal-body .channel-contact {
+    margin: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 10px 12px;
+    color: #334155;
+  }
+
+  .channel-modal-body .channel-contact strong {
+    color: #111827;
+  }
+
   .status-badge {
     display: inline-flex;
     align-items: center;
@@ -866,6 +957,10 @@ const pageStyles = `
   .card-status {
     display: flex;
     justify-content: flex-start;
+    margin-top: 10px;
+  }
+
+  .product-card > .channel-info {
     margin-top: 10px;
   }
 

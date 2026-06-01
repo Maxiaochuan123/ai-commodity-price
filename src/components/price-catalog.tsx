@@ -1,8 +1,9 @@
 "use client";
 
-import { Copy, ExternalLink } from "lucide-react";
+import { Copy, ExternalLink, X } from "lucide-react";
 import type { MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAdmin } from "@/components/admin-shell";
 import type { Product } from "@/data/products";
 import type { ProductGroup } from "@/data/products";
@@ -61,7 +62,7 @@ async function copyText(text: string) {
   return copied;
 }
 
-export function PriceCatalog({ groups }: { groups: ProductGroup[] }) {
+export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const admin = useAdmin();
   const [catalogGroups, setCatalogGroups] = useState<CatalogGroup[]>(groups);
   const [baselinePrices, setBaselinePrices] = useState<PriceMap>(() => getPriceMapFromGroups(groups));
@@ -349,6 +350,7 @@ function ProductTable({
         <tr>
           <th>商品</th>
           {isAdmin ? <th className="status-cell">状态</th> : null}
+          {isAdmin ? <th className="channel-cell">渠道</th> : null}
           {isAdmin ? <th className="price-cell">成本</th> : null}
           <th className="price-cell">零售</th>
           <th className="price-cell agent-price">代理</th>
@@ -373,6 +375,11 @@ function ProductTable({
                 ) : (
                   <StatusBadge active={product.active !== false} />
                 )}
+              </td>
+            ) : null}
+            {isAdmin ? (
+              <td className="channel-cell">
+                <ChannelInfo product={product} />
               </td>
             ) : null}
             {isAdmin ? (
@@ -440,6 +447,7 @@ function ProductCards({
               )}
             </div>
           ) : null}
+          {isAdmin ? <ChannelInfo product={product} /> : null}
           <div className="card-prices">
             {isAdmin ? (
               <>
@@ -518,6 +526,57 @@ function StatusToggle({ active, onChange }: { active: boolean; onChange: (active
       </span>
       <span className="switch-label">{active ? "上架" : "下架"}</span>
     </button>
+  );
+}
+
+function ChannelInfo({ product }: { product: CatalogProduct }) {
+  const [open, setOpen] = useState(false);
+
+  if (!product.channel) return <span className="channel-empty">未标注</span>;
+
+  return (
+    <>
+      <button className="channel-name" onClick={() => setOpen(true)} type="button">
+        {product.channel.name}
+      </button>
+      {open ? createPortal(
+        <div aria-modal="true" className="modal-backdrop" role="dialog">
+          <div className="agent-modal channel-modal">
+            <div className="agent-modal-header">
+              <div>
+                <h2>{product.channel.name}</h2>
+                <p>{product.name}</p>
+              </div>
+              <button aria-label="关闭" className="modal-close" onClick={() => setOpen(false)} type="button">
+                <X className="icon-xs" />
+              </button>
+            </div>
+
+            <div className="agent-modal-body channel-modal-body">
+              {product.channel.storeUrl ? (
+                <a className="channel-link channel-store-link" href={product.channel.storeUrl} rel="noreferrer" target="_blank">
+                  打开店铺
+                  <ExternalLink className="icon-xs" />
+                </a>
+              ) : null}
+              {product.channel.contacts?.map((contact) => (
+                <p className="channel-contact" key={`${contact.label}-${contact.value}`}>
+                  <strong>{contact.label}：</strong>
+                  {contact.value}
+                </p>
+              ))}
+            </div>
+
+            <div className="agent-modal-actions">
+              <button className="button button-secondary" onClick={() => setOpen(false)} type="button">
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      ) : null}
+    </>
   );
 }
 

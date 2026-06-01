@@ -89,6 +89,7 @@ export function buildCatalog(priceMap: PriceMap, includeCost: boolean) {
       ...product,
       active: price.active,
       agent: price.agent,
+      channel: product.channel,
       cost: includeCost ? price.cost : undefined,
       retail: price.retail
     };
