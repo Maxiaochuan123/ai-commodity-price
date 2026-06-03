@@ -66,6 +66,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const admin = useAdmin();
   const [catalogGroups, setCatalogGroups] = useState<CatalogGroup[]>(groups);
   const [baselinePrices, setBaselinePrices] = useState<PriceMap>(() => getPriceMapFromGroups(groups));
+  const [pricesLoaded, setPricesLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(groups[0]?.id ?? "");
   const tabListRef = useRef<HTMLDivElement | null>(null);
@@ -85,14 +86,27 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadPrices() {
-      const response = await fetch("/api/prices", { cache: "no-store" });
-      const data = (await response.json()) as { groups: CatalogGroup[]; isAdmin: boolean };
-      setCatalogGroups(data.groups);
-      setBaselinePrices(getPriceMapFromGroups(data.groups));
+      setPricesLoaded(false);
+      try {
+        const response = await fetch("/api/prices", { cache: "no-store" });
+        const data = (await response.json()) as { groups: CatalogGroup[]; isAdmin: boolean };
+        if (cancelled) return;
+
+        setCatalogGroups(data.groups);
+        setBaselinePrices(getPriceMapFromGroups(data.groups));
+      } finally {
+        if (!cancelled) setPricesLoaded(true);
+      }
     }
 
     void loadPrices();
+
+    return () => {
+      cancelled = true;
+    };
   }, [admin.isAdmin]);
 
   const savePrices = useCallback(async () => {
@@ -271,41 +285,51 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       </div>
 
       <section className="container catalog" id="catalog">
-        <div className="group-list">
-          {catalogGroups.map((group) => (
-            <section className="product-group" id={group.id} key={group.id}>
-              <div className="group-header">
-                <h2>{group.name}</h2>
-                <p>{group.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
-              </div>
+        {pricesLoaded ? (
+          <div className="group-list">
+            {catalogGroups.map((group) => (
+              <section className="product-group" id={group.id} key={group.id}>
+                <div className="group-header">
+                  <h2>{group.name}</h2>
+                  <p>{group.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
+                </div>
 
-              <div className="table-shell">
-                <ProductTable
+                <div className="table-shell">
+                  <ProductTable
+                    editMode={admin.editMode}
+                    isAdmin={admin.isAdmin}
+                    onPriceChange={updatePrice}
+                    onStatusChange={updateStatus}
+                    products={group.products}
+                  />
+                </div>
+
+                <ProductCards
                   editMode={admin.editMode}
                   isAdmin={admin.isAdmin}
                   onPriceChange={updatePrice}
                   onStatusChange={updateStatus}
                   products={group.products}
                 />
-              </div>
 
-              <ProductCards
-                editMode={admin.editMode}
-                isAdmin={admin.isAdmin}
-                onPriceChange={updatePrice}
-                onStatusChange={updateStatus}
-                products={group.products}
-              />
+                {group.subgroups?.map((subgroup) => (
+                  <div className="product-subgroup" key={subgroup.name}>
+                    <div className="group-header subgroup-header">
+                      <h3>{subgroup.name}</h3>
+                      <p>{subgroup.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
+                    </div>
 
-              {group.subgroups?.map((subgroup) => (
-                <div className="product-subgroup" key={subgroup.name}>
-                  <div className="group-header subgroup-header">
-                    <h3>{subgroup.name}</h3>
-                    <p>{subgroup.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
-                  </div>
+                    <div className="table-shell">
+                      <ProductTable
+                        editMode={admin.editMode}
+                        isAdmin={admin.isAdmin}
+                        onPriceChange={updatePrice}
+                        onStatusChange={updateStatus}
+                        products={subgroup.products}
+                      />
+                    </div>
 
-                  <div className="table-shell">
-                    <ProductTable
+                    <ProductCards
                       editMode={admin.editMode}
                       isAdmin={admin.isAdmin}
                       onPriceChange={updatePrice}
@@ -313,19 +337,13 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                       products={subgroup.products}
                     />
                   </div>
-
-                  <ProductCards
-                    editMode={admin.editMode}
-                    isAdmin={admin.isAdmin}
-                    onPriceChange={updatePrice}
-                    onStatusChange={updateStatus}
-                    products={subgroup.products}
-                  />
-                </div>
-              ))}
-            </section>
-          ))}
-        </div>
+                ))}
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">正在加载最新商品状态...</div>
+        )}
       </section>
     </>
   );
@@ -486,7 +504,7 @@ function ProductName({ product }: { product: CatalogProduct }) {
   if (!product.docUrl) {
     return (
       <span className="product-entry-name">
-        {product.name}
+        <span className="product-title-text">{product.name}</span>
         {offlineBadge}
       </span>
     );
@@ -495,7 +513,7 @@ function ProductName({ product }: { product: CatalogProduct }) {
   return (
     <span className="product-entry">
       <span className="product-entry-name">
-        {product.name}
+        <span className="product-title-text">{product.name}</span>
         {offlineBadge}
       </span>
       <span className="product-doc-actions">

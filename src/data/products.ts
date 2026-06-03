@@ -116,12 +116,12 @@ const rawProductGroups: ProductGroup[] = [
         name: "Codex 手机号接码【虚拟卡 一次性】",
         cost: 0.9,
         retail: 10,
-        agent: 2.5,
+        agent: 5,
         docUrl: "https://www.yuque.com/u8042174/kb/pog9pz364owob5bg?singleDoc# 《Codex 手机接码教程》"
       },
       {
         id: "chatgpt-codex-phone-code-2",
-        name: "Codex 手机号接码【实体卡 长效31~90天】【无惧二次验证】",
+        name: "Codex 手机号接码【实体卡 长效20~30天】【无惧二次验证】",
         cost: 6,
         retail: 16,
         agent: 9,
@@ -141,6 +141,13 @@ const rawProductGroups: ProductGroup[] = [
         cost: 25,
         retail: 48,
         agent: 30
+      },
+      {
+        id: "chatgpt-plus-account-1m-warranty",
+        name: "GPT Plus 1个月成品号【掉号包换号】",
+        cost: 39,
+        retail: 118,
+        agent: 58
       },
       {
         id: "chatgpt-plus-direct-1m-standard",

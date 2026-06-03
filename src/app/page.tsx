@@ -614,6 +614,15 @@ const pageStyles = `
     opacity: 0.62;
   }
 
+  .price-table tbody tr.is-offline .product-title-text,
+  .price-table tbody tr.is-offline .price-cell,
+  .product-card.is-offline .product-title-text,
+  .product-card.is-offline .price-value {
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    text-decoration-color: #94a3b8;
+  }
+
   .product-name {
     color: #1f2937;
     font-size: 14px;
