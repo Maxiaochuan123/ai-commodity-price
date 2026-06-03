@@ -47,7 +47,11 @@ const productChannels: Record<string, ProductChannel> = {
   },
   "chatgpt-plus-account-1m-no-warranty": {
     contacts: [{ label: "QQ号", value: "634016189" }],
-    name: "QQ渠道"
+    name: "往事如电"
+  },
+  "chatgpt-plus-account-1m-warranty": {
+    contacts: [{ label: "QQ号", value: "2840884471" }],
+    name: "可乐"
   },
   "chatgpt-plus-direct-1m-standard": {
     contacts: [{ label: "QQ号", value: "3488303242" }],
@@ -127,14 +131,14 @@ const rawProductGroups: ProductGroup[] = [
         agent: 9,
         docUrl: "https://www.yuque.com/u8042174/kb/cl1zwst44tqd09er?singleDoc# 《Codex 手机接码教程-实体卡长效【20~30天内】》"
       },
-      {
-        id: "chatgpt-plus-day-sub2-cpa",
-        name: "Gpt Plus 日抛 Sub2/Cpa格式【已过手机接码】",
-        cost: 3,
-        retail: 10,
-        agent: 4,
-        docUrl: "https://www.yuque.com/u8042174/kb/kvm4yl8dnh69eypc?singleDoc# 《Codex 日抛 sub2 使用教程》"
-      },
+      // {
+      //   id: "chatgpt-plus-day-sub2-cpa",
+      //   name: "Gpt Plus 日抛 Sub2/Cpa格式【已过手机接码】",
+      //   cost: 3,
+      //   retail: 10,
+      //   agent: 4,
+      //   docUrl: "https://www.yuque.com/u8042174/kb/kvm4yl8dnh69eypc?singleDoc# 《Codex 日抛 sub2 使用教程》"
+      // },
       {
         id: "chatgpt-plus-account-1m-no-warranty",
         name: "GPT Plus 1个月成品号 10单起售【100单 中 90% 活超过半个月 10% 一周左右】【无质保，介意勿购】",
@@ -216,7 +220,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Claude MAX 20x 1个月成品号【质保订阅/封号30天】【预定制】【可开发票】",
         cost: 1390,
         retail: 1588,
-        agent: 1338,
+        agent: 1440,
         docUrl: "https://www.yuque.com/u8042174/kb/lborbzimcmhgg3lp?singleDoc# 《Claude MAX 20x 成品号【质保订阅/封号30天】【预定制】》"
       },
       {
@@ -253,7 +257,7 @@ const rawProductGroups: ProductGroup[] = [
             name: "Claude MAX 20x 1个月代充/成品号【质保订阅30天】【已过KYC认证】【可开发票】",
             cost: 950,
             retail: 1298,
-            agent: 948,
+            agent: 998,
             docUrl: "https://www.yuque.com/u8042174/kb/nzh75cxmtqcf03k4?singleDoc# 《Claude MAX 20x 官方直充【质保订阅30天】》"
           }
         ]
