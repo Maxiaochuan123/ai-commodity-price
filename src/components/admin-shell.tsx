@@ -32,6 +32,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [visitorChanges, setVisitorChanges] = useState<PublicPriceChangeBatch | null>(null);
 
@@ -101,6 +102,17 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     await catalogController?.save();
   }
 
+  async function resetToCodeDefaults() {
+    setConfirmResetOpen(false);
+    const response = await fetch("/api/admin/prices", { method: "DELETE" });
+    if (response.ok) {
+      setToast("已恢复代码默认价格，正在刷新...");
+      window.location.reload();
+    } else {
+      setToast("恢复失败");
+    }
+  }
+
   function dismissVisitorChanges() {
     if (visitorChanges) {
       window.localStorage.setItem("ai-price-dismissed-change-id", visitorChanges.id);
@@ -113,6 +125,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       {children}
       {isAdmin ? (
         <div className="admin-floating-actions">
+          {editMode ? (
+            <button
+              className="button button-danger"
+              onClick={() => setConfirmResetOpen(true)}
+              type="button"
+            >
+              恢复代码价格
+            </button>
+          ) : null}
           {editMode && catalogController?.dirty ? (
             <button
               className="button button-accent"
@@ -141,6 +162,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           onCancel={() => setConfirmSaveOpen(false)}
           onConfirm={() => void saveChanges()}
           title="确认保存修改？"
+        />
+      ) : null}
+      {mounted && confirmResetOpen ? (
+        <ConfirmModal
+          confirmClassName="button button-danger"
+          confirmText="确认恢复"
+          message="确认删除所有已保存的价格，并恢复到代码中定义的初始默认价格吗？此操作将立即刷新页面。"
+          onCancel={() => setConfirmResetOpen(false)}
+          onConfirm={() => void resetToCodeDefaults()}
+          title="确认恢复代码默认价格？"
         />
       ) : null}
       {mounted && confirmLogoutOpen ? (

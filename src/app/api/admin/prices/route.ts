@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/admin-auth";
-import { readPrices, writeLatestChanges, writePrices } from "@/lib/price-store";
+import { deletePrices, readPrices, writeLatestChanges, writePrices } from "@/lib/price-store";
 import { diffPublicPriceChanges, mergePriceMap } from "@/lib/pricing";
 import type { PriceMap, PublicPriceChangeBatch } from "@/lib/pricing";
 
@@ -36,5 +36,17 @@ export async function PUT(request: Request) {
   return NextResponse.json({
     changes: batch,
     prices: next
+  });
+}
+
+export async function DELETE() {
+  if (!isAdminRequest()) {
+    return NextResponse.json({ message: "未登录" }, { status: 401 });
+  }
+
+  await deletePrices();
+
+  return NextResponse.json({
+    message: "已重置为代码默认价格"
   });
 }

@@ -59,6 +59,20 @@ export async function writeLatestChanges(changes: PublicPriceChangeBatch | null)
   await writeLocalStore({ ...store, changes });
 }
 
+export async function deletePrices() {
+  if (hasKv()) {
+    await kv.del(PRICES_KEY);
+    await kv.del(PRICE_CHANGES_KEY);
+    return;
+  }
+
+  try {
+    await fs.unlink(localStorePath);
+  } catch {
+    // Ignore
+  }
+}
+
 function hasKv() {
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
 }
