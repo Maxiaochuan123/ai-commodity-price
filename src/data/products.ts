@@ -120,7 +120,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Codex 手机号接码【虚拟卡 一次性】",
         cost: 0.9,
         retail: 10,
-        agent: 5,
+        agent: 3,
         docUrl: "https://www.yuque.com/u8042174/kb/pog9pz364owob5bg?singleDoc# 《Codex 手机接码教程》"
       },
       {
@@ -128,7 +128,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Codex 手机号接码【实体卡 长效20~30天】【无惧二次验证】",
         cost: 6,
         retail: 16,
-        agent: 9,
+        agent: 3,
         docUrl: "https://www.yuque.com/u8042174/kb/cl1zwst44tqd09er?singleDoc# 《Codex 手机接码教程-实体卡长效【20~30天内】》"
       },
       // {
@@ -144,21 +144,21 @@ const rawProductGroups: ProductGroup[] = [
         name: "GPT Plus 1个月成品号 10单起售【100单 中 90% 活超过半个月 10% 一周左右】【无质保，介意勿购】",
         cost: 25,
         retail: 48,
-        agent: 30
+        agent: 100
       },
       {
         id: "chatgpt-plus-account-1m-warranty",
         name: "GPT Plus 1个月成品号【掉号包换号】",
         cost: 39,
         retail: 118,
-        agent: 58
+        agent: 10
       },
       {
         id: "chatgpt-plus-direct-1m-standard",
         name: "GPT Plus 1个月直充【保证正规渠道充值，无其他质保】",
         cost: 88,
         retail: 118,
-        agent: 96,
+        agent: 10,
         docUrl: "https://www.yuque.com/u8042174/kb/cqmvx33vg7rct7d7?singleDoc# 《GPT Plus土区官方直充月卡【保证正规充值其他无质保】》"
       },
       {
@@ -166,7 +166,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "GPT Plus 1个月直充【IOS老牌土区稳定】【质保订阅 30天】",
         cost: 95,
         retail: 138,
-        agent: 106,
+        agent: 13,
         docUrl: "https://www.yuque.com/u8042174/kb/xc6oydbfh9wnbwbe?singleDoc# 《GPT Plus 1个月直充【IOS老牌土区稳定】【质保订阅 30天】》"
       },
       {
@@ -174,7 +174,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "GPT Pro 5x 1个月直充【质保订阅 30天】【可开发票】",
         cost: 690,
         retail: 758,
-        agent: 718,
+        agent: 20,
         docUrl: "https://www.yuque.com/u8042174/kb/kllzfrv73xxvmwhc?singleDoc# 《GPT Pro 5x 1个月直充【质保订阅 30天】【可开发票】》"
       },
       {
@@ -182,7 +182,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "GPT Pro 20x 1个月直充【质保订阅 30天】【可开发票】",
         cost: 1150,
         retail: 1288,
-        agent: 1178,
+        agent: 50,
         docUrl: "https://www.yuque.com/u8042174/kb/ik28za8v1h2g1e6t?singleDoc# 《GPT Pro 20x 1个月直充【质保订阅 30天】【可开发票】》"
       },
       {
@@ -190,7 +190,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "GPT Cyber(TAC) KYC 认证服务",
         cost: 55,
         retail: 88,
-        agent: 66,
+        agent: 10,
         docUrl: "https://www.yuque.com/u8042174/kb/zs2eop2qoxteului?singleDoc# 《GPT Cyber(TAC) KYC 认证服务》"
       }
     ]
@@ -204,7 +204,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Claude Pro 1个月 官方直充【仅保证正规尼区】【无其他质保】",
         cost: 100,
         retail: 148,
-        agent: 118,
+        agent: 10,
         docUrl: "https://www.yuque.com/u8042174/kb/cp8vmveom283hqmg?singleDoc# 《Claude Pro 1个月 官方直充【仅保证正规尼区】【无其他质保】》"
       },
       {
@@ -212,7 +212,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Claude MAX 5x 1个月成品号【质保订阅/封号30天】【预定制】【可开发票】",
         cost: 720,
         retail: 858,
-        agent: 740,
+        agent: 30,
         docUrl: "https://www.yuque.com/u8042174/kb/apavgzlvissdz3e3?singleDoc# 《Claude MAX 5x 成品号【质保订阅/封号30天】【预定制】》"
       },
       {
@@ -220,7 +220,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Claude MAX 20x 1个月成品号【质保订阅/封号30天】【预定制】【可开发票】",
         cost: 1390,
         retail: 1588,
-        agent: 1440,
+        agent: 88,
         docUrl: "https://www.yuque.com/u8042174/kb/lborbzimcmhgg3lp?singleDoc# 《Claude MAX 20x 成品号【质保订阅/封号30天】【预定制】》"
       },
       {
@@ -228,7 +228,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Claude MAX 20x 1个月成品号【无质保】【预定制】【可开发票】",
         cost: 680,
         retail: 838,
-        agent: 728,
+        agent: 68,
         docUrl: "https://www.yuque.com/u8042174/kb/gggi0vooedag0gbb?singleDoc# 《Claude MAX 20x 成品号【预定制】》"
       },
       {
@@ -236,7 +236,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Claude KYC 认证服务",
         cost: 55,
         retail: 88,
-        agent: 66,
+        agent: 10,
         docUrl: "https://www.yuque.com/u8042174/kb/ymhnuv3ci6pfv8ga?singleDoc# 《Claude KYC 认证服务》"
       }
     ],
@@ -249,7 +249,7 @@ const rawProductGroups: ProductGroup[] = [
             name: "Claude MAX 5x 1个月代充/成品号【质保订阅30天】【已过KYC认证】",
             cost: 790,
             retail: 968,
-            agent: 868,
+            agent: 38,
             docUrl: "https://www.yuque.com/u8042174/kb/intlhmoqg8okx9oy?singleDoc# 《Claude MAX 5x 成品号【质保订阅30天】【已过KYC认证】》"
           },
           {
@@ -257,7 +257,7 @@ const rawProductGroups: ProductGroup[] = [
             name: "Claude MAX 20x 1个月代充/成品号【质保订阅30天】【已过KYC认证】【可开发票】",
             cost: 950,
             retail: 1298,
-            agent: 998,
+            agent: 100,
             docUrl: "https://www.yuque.com/u8042174/kb/nzh75cxmtqcf03k4?singleDoc# 《Claude MAX 20x 官方直充【质保订阅30天】》"
           }
         ]
@@ -273,7 +273,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Gemini Pro 1年订阅成品号",
         cost: 15,
         retail: 38,
-        agent: 22,
+        agent: 5,
         docUrl: "https://www.yuque.com/u8042174/kb/zk0lqnv0fui9v94w"
       },
       {
@@ -281,7 +281,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "Gemini Pro 1年 官方直充【质保1年】【Pixel自动绑卡丝滑激活】",
         cost: 39,
         retail: 69,
-        agent: 49,
+        agent: 10,
         docUrl: "https://www.yuque.com/u8042174/kb/gtadnlkp2c0cgfyb?singleDoc#"
       },
       {
@@ -289,7 +289,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "google邮箱【稳定老号】【22-24年】",
         cost: 4.5,
         retail: 16,
-        agent: 8.5,
+        agent: 5,
         docUrl: "https://www.yuque.com/u8042174/kb/gkhtil3pzub0wz5t"
       }
     ]
@@ -310,8 +310,8 @@ const rawProductGroups: ProductGroup[] = [
         id: "grok-supergrok-direct-1y",
         name: "SuperGrok 官方直充 1年会员【质保订阅365天】",
         cost: 588,
-        retail: 698,
-        agent: 626,
+        retail: 696,
+        agent: 28,
         docUrl: "https://www.yuque.com/u8042174/kb/hhq0v56ntgkkvosh?singleDoc#"
       }
     ]
@@ -320,10 +320,10 @@ const rawProductGroups: ProductGroup[] = [
     id: "telegram",
     name: "Telegram 系列",
     products: [
-      { id: "telegram-new-1m", name: "1个月新号", cost: 9, retail: 28, agent: 16 },
-      { id: "telegram-half-to-1y", name: "半年~1年", cost: 12, retail: 38, agent: 26 },
-      { id: "telegram-2-to-3y", name: "2-3年", cost: 17, retail: 58, agent: 36 },
-      { id: "telegram-4y-plus", name: "4年+", cost: 25, retail: 78, agent: 46 }
+      { id: "telegram-new-1m", name: "1个月新号", cost: 9, retail: 28, agent: 5 },
+      { id: "telegram-half-to-1y", name: "半年~1年", cost: 12, retail: 38, agent: 8 },
+      { id: "telegram-2-to-3y", name: "2-3年", cost: 17, retail: 58, agent: 12 },
+      { id: "telegram-4y-plus", name: "4年+", cost: 25, retail: 78, agent: 16 }
     ]
   }
 ];

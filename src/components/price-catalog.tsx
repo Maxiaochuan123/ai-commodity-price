@@ -371,11 +371,10 @@ function ProductTable({
           {isAdmin ? <th className="channel-cell">渠道</th> : null}
           {isAdmin ? <th className="price-cell">成本</th> : null}
           <th className="price-cell">零售</th>
-          <th className="price-cell agent-price">代理</th>
+          <th className="price-cell agent-price">代理返现</th>
           {isAdmin ? (
             <>
               <th className="price-cell">零售利润</th>
-              <th className="price-cell agent-price">代理利润</th>
             </>
           ) : null}
         </tr>
@@ -426,7 +425,6 @@ function ProductTable({
             {isAdmin ? (
               <>
                 <td className="price-cell">¥{formatPrice(product.retail - (product.cost ?? 0))}</td>
-                <td className="price-cell agent-price">¥{formatPrice(product.agent - (product.cost ?? 0))}</td>
               </>
             ) : null}
           </tr>
@@ -473,22 +471,21 @@ function ProductCards({
                   <>
                     <EditablePriceBlock label="成本" onChange={(value) => onPriceChange(product.id, "cost", value)} value={product.cost ?? 0} />
                     <EditablePriceBlock label="零售" onChange={(value) => onPriceChange(product.id, "retail", value)} value={product.retail} />
-                    <EditablePriceBlock highlight label="代理" onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
+                    <EditablePriceBlock highlight label="代理返现" onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
                   </>
                 ) : (
                   <>
                     <PriceBlock label="成本" value={product.cost ?? 0} />
                     <PriceBlock label="零售" value={product.retail} />
-                    <PriceBlock highlight label="代理" value={product.agent} />
+                    <PriceBlock highlight label="代理返现" value={product.agent} />
                   </>
                 )}
                 <PriceBlock label="零售利润" value={product.retail - (product.cost ?? 0)} />
-                <PriceBlock highlight label="代理利润" value={product.agent - (product.cost ?? 0)} />
               </>
             ) : (
               <>
                 <PriceBlock label="零售" value={product.retail} />
-                <PriceBlock highlight label="代理" value={product.agent} />
+                <PriceBlock highlight label="代理返现" value={product.agent} />
               </>
             )}
           </div>
