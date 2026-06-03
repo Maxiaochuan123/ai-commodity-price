@@ -983,6 +983,10 @@ const pageStyles = `
     background: #f0fdfa;
   }
 
+  .price-block.is-profit {
+    background: #fff7ed;
+  }
+
   .price-label {
     color: #64748b;
     font-size: 12px;
@@ -998,6 +1002,14 @@ const pageStyles = `
 
   .price-block.is-agent .price-value {
     color: #0f766e;
+  }
+
+  .price-block.is-profit .price-value {
+    color: #c2410c;
+  }
+
+  .profit-price {
+    color: #c2410c;
   }
 
   .empty-state {

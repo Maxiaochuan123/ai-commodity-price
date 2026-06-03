@@ -371,12 +371,8 @@ function ProductTable({
           {isAdmin ? <th className="channel-cell">渠道</th> : null}
           {isAdmin ? <th className="price-cell">成本</th> : null}
           <th className="price-cell">零售</th>
-          <th className="price-cell agent-price">代理返现</th>
-          {isAdmin ? (
-            <>
-              <th className="price-cell">零售利润</th>
-            </>
-          ) : null}
+          {isAdmin ? <th className="price-cell profit-price">零售利润</th> : null}
+          <th className="price-cell agent-price">代理返现 (每单)</th>
         </tr>
       </thead>
       <tbody>
@@ -415,6 +411,11 @@ function ProductTable({
                 `¥${formatPrice(product.retail)}`
               )}
             </td>
+            {isAdmin ? (
+              <td className="price-cell profit-price">
+                ¥{formatPrice(product.retail - (product.cost ?? 0))}
+              </td>
+            ) : null}
             <td className="price-cell agent-price">
               {isAdmin && editMode ? (
                 <PriceInput onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
@@ -422,11 +423,6 @@ function ProductTable({
                 `¥${formatPrice(product.agent)}`
               )}
             </td>
-            {isAdmin ? (
-              <>
-                <td className="price-cell">¥{formatPrice(product.retail - (product.cost ?? 0))}</td>
-              </>
-            ) : null}
           </tr>
         ))}
       </tbody>
@@ -471,21 +467,22 @@ function ProductCards({
                   <>
                     <EditablePriceBlock label="成本" onChange={(value) => onPriceChange(product.id, "cost", value)} value={product.cost ?? 0} />
                     <EditablePriceBlock label="零售" onChange={(value) => onPriceChange(product.id, "retail", value)} value={product.retail} />
-                    <EditablePriceBlock highlight label="代理返现" onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
+                    <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
+                    <EditablePriceBlock highlight label="代理返现 (每单)" onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
                   </>
                 ) : (
                   <>
                     <PriceBlock label="成本" value={product.cost ?? 0} />
                     <PriceBlock label="零售" value={product.retail} />
-                    <PriceBlock highlight label="代理返现" value={product.agent} />
+                    <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
+                    <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
                   </>
                 )}
-                <PriceBlock label="零售利润" value={product.retail - (product.cost ?? 0)} />
               </>
             ) : (
               <>
                 <PriceBlock label="零售" value={product.retail} />
-                <PriceBlock highlight label="代理返现" value={product.agent} />
+                <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
               </>
             )}
           </div>
@@ -631,9 +628,12 @@ function CopyDocButton({ url }: { url: string }) {
   );
 }
 
-function PriceBlock({ highlight, label, value }: { highlight?: boolean; label: string; value: number }) {
+function PriceBlock({ highlight, label, profit, value }: { highlight?: boolean; label: string; profit?: boolean; value: number }) {
+  let blockClass = "price-block";
+  if (highlight) blockClass += " is-agent";
+  if (profit) blockClass += " is-profit";
   return (
-    <div className={highlight ? "price-block is-agent" : "price-block"}>
+    <div className={blockClass}>
       <div className="price-label">{label}</div>
       <div className="price-value">¥{formatPrice(value)}</div>
     </div>

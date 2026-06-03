@@ -347,7 +347,7 @@ function VisitorChangeModal({ changes, onClose }: { changes: PublicPriceChangeBa
               ) : null}
               {change.agent ? (
                 <p>
-                  代理返现：¥{formatPrice(change.agent.from)} → ¥{formatPrice(change.agent.to)}
+                  代理返现 (每单)：¥{formatPrice(change.agent.from)} → ¥{formatPrice(change.agent.to)}
                 </p>
               ) : null}
             </article>
