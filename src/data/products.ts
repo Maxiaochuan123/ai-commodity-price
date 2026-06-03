@@ -125,7 +125,7 @@ const rawProductGroups: ProductGroup[] = [
         cost: 6,
         retail: 16,
         agent: 9,
-        docUrl: "https://www.yuque.com/u8042174/kb/pog9pz364owob5bg?singleDoc# 《Codex 手机接码教程》"
+        docUrl: "https://www.yuque.com/u8042174/kb/cl1zwst44tqd09er?singleDoc# 《Codex 手机接码教程-实体卡长效【20~30天内】》"
       },
       {
         id: "chatgpt-plus-day-sub2-cpa",
