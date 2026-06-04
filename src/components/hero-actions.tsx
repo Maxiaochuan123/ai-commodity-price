@@ -49,8 +49,8 @@ export function BecomeAgentButton() {
                     <span>加入后可获取代理价、下单说明和后续合作支持。</span>
                   </div>
                   <p>联系微信：mxcsgnh</p>
-                  <p>代理费用：￥188</p>
-                  <p>适合长期转售、做渠道分发、或需要稳定供货的人。</p>
+                  <p>主播/代理 合作：小单量直接参考 代理返现 (每单)</p>
+                  <p>大单量：＋ 微信详谈</p>
                 </div>
 
                 <div className="agent-modal-actions">

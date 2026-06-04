@@ -7,7 +7,6 @@ import { createPortal } from "react-dom";
 import { useAdmin } from "@/components/admin-shell";
 import type { Product } from "@/data/products";
 import type { ProductGroup } from "@/data/products";
-import type { PriceMap } from "@/lib/pricing";
 
 const formatter = new Intl.NumberFormat("zh-CN", {
   maximumFractionDigits: 1
@@ -64,17 +63,11 @@ async function copyText(text: string) {
 
 export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const admin = useAdmin();
-  const [catalogGroups, setCatalogGroups] = useState<CatalogGroup[]>(groups);
-  const [baselinePrices, setBaselinePrices] = useState<PriceMap>(() => getPriceMapFromGroups(groups));
-  const [pricesLoaded, setPricesLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [activeGroupId, setActiveGroupId] = useState(groups[0]?.id ?? "");
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const manualScrollUntilRef = useRef(0);
-  const groupIds = useMemo(() => catalogGroups.map((group) => group.id).join("|"), [catalogGroups]);
-  const currentPrices = getPriceMapFromGroups(catalogGroups);
-  const dirty = JSON.stringify(currentPrices) !== JSON.stringify(baselinePrices);
+  const groupIds = useMemo(() => groups.map((group) => group.id).join("|"), [groups]);
 
   const scrollToGroup = useCallback((groupId: string, behavior: ScrollBehavior) => {
     const section = document.getElementById(groupId);
@@ -84,67 +77,6 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
     const top = section.getBoundingClientRect().top + window.scrollY - toolbarHeight - 24;
     window.scrollTo({ top: Math.max(0, top), behavior });
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPrices() {
-      setPricesLoaded(false);
-      try {
-        const response = await fetch("/api/prices", { cache: "no-store" });
-        const data = (await response.json()) as { groups: CatalogGroup[]; isAdmin: boolean };
-        if (cancelled) return;
-
-        setCatalogGroups(data.groups);
-        setBaselinePrices(getPriceMapFromGroups(data.groups));
-      } finally {
-        if (!cancelled) setPricesLoaded(true);
-      }
-    }
-
-    void loadPrices();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [admin.isAdmin]);
-
-  const savePrices = useCallback(async () => {
-    setSaving(true);
-    try {
-      const response = await fetch("/api/admin/prices", {
-        body: JSON.stringify({ prices: getPriceMapFromGroups(catalogGroups) }),
-        headers: { "Content-Type": "application/json" },
-        method: "PUT"
-      });
-
-      if (!response.ok) {
-        admin.setToast("保存失败，请重新登录");
-        return;
-      }
-
-      const data = (await response.json()) as { changes: unknown; prices: PriceMap };
-      setBaselinePrices(data.prices);
-      admin.setToast(data.changes ? "已保存，访客将看到价格更新提醒" : "已保存，未产生价格变动提醒");
-    } finally {
-      setSaving(false);
-    }
-  }, [admin, catalogGroups]);
-
-  const resetPrices = useCallback(() => {
-    setCatalogGroups((currentGroups) => applyPriceMapToGroups(currentGroups, baselinePrices));
-  }, [baselinePrices]);
-
-  useEffect(() => {
-    admin.registerCatalog({
-      dirty,
-      reset: resetPrices,
-      save: savePrices,
-      saving
-    });
-
-    return () => admin.registerCatalog(null);
-  }, [admin, dirty, resetPrices, savePrices, saving]);
 
   useEffect(() => {
     const sections = groupIds
@@ -255,20 +187,12 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
     scrollToGroup(groupId, "smooth");
   }
 
-  function updatePrice(productId: string, field: keyof PriceMap[string], value: number) {
-    setCatalogGroups((currentGroups) => updateProductPrice(currentGroups, productId, field, value));
-  }
-
-  function updateStatus(productId: string, active: boolean) {
-    setCatalogGroups((currentGroups) => updateProductStatus(currentGroups, productId, active));
-  }
-
   return (
     <>
       <div className="catalog-toolbar" ref={toolbarRef}>
         <div className="catalog-toolbar-shell">
           <div className="category-tabs" aria-label="产品分类" ref={tabListRef}>
-            {catalogGroups.map((group) => (
+            {groups.map((group) => (
               <a
                 aria-current={activeGroupId === group.id ? "true" : undefined}
                 className={activeGroupId === group.id ? "category-tab is-active" : "category-tab"}
@@ -285,81 +209,59 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       </div>
 
       <section className="container catalog" id="catalog">
-        {pricesLoaded ? (
-          <div className="group-list">
-            {catalogGroups.map((group) => (
-              <section className="product-group" id={group.id} key={group.id}>
-                <div className="group-header">
-                  <h2>{group.name}</h2>
-                  <p>{group.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
-                </div>
+        <div className="group-list">
+          {groups.map((group) => (
+            <section className="product-group" id={group.id} key={group.id}>
+              <div className="group-header">
+                <h2>{group.name}</h2>
+                <p>{group.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
+              </div>
 
-                <div className="table-shell">
-                  <ProductTable
-                    editMode={admin.editMode}
-                    isAdmin={admin.isAdmin}
-                    onPriceChange={updatePrice}
-                    onStatusChange={updateStatus}
-                    products={group.products}
-                  />
-                </div>
-
-                <ProductCards
-                  editMode={admin.editMode}
+              <div className="table-shell">
+                <ProductTable
                   isAdmin={admin.isAdmin}
-                  onPriceChange={updatePrice}
-                  onStatusChange={updateStatus}
                   products={group.products}
                 />
+              </div>
 
-                {group.subgroups?.map((subgroup) => (
-                  <div className="product-subgroup" key={subgroup.name}>
-                    <div className="group-header subgroup-header">
-                      <h3>{subgroup.name}</h3>
-                      <p>{subgroup.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
-                    </div>
+              <ProductCards
+                isAdmin={admin.isAdmin}
+                products={group.products}
+              />
 
-                    <div className="table-shell">
-                      <ProductTable
-                        editMode={admin.editMode}
-                        isAdmin={admin.isAdmin}
-                        onPriceChange={updatePrice}
-                        onStatusChange={updateStatus}
-                        products={subgroup.products}
-                      />
-                    </div>
+              {group.subgroups?.map((subgroup) => (
+                <div className="product-subgroup" key={subgroup.name}>
+                  <div className="group-header subgroup-header">
+                    <h3>{subgroup.name}</h3>
+                    <p>{subgroup.products.length} 个商品，点击商品名阅读使用说明与注意事项</p>
+                  </div>
 
-                    <ProductCards
-                      editMode={admin.editMode}
+                  <div className="table-shell">
+                    <ProductTable
                       isAdmin={admin.isAdmin}
-                      onPriceChange={updatePrice}
-                      onStatusChange={updateStatus}
                       products={subgroup.products}
                     />
                   </div>
-                ))}
-              </section>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-state">正在加载最新商品状态...</div>
-        )}
+
+                  <ProductCards
+                    isAdmin={admin.isAdmin}
+                    products={subgroup.products}
+                  />
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
       </section>
     </>
   );
 }
 
 function ProductTable({
-  editMode,
   isAdmin,
-  onPriceChange,
-  onStatusChange,
   products
 }: {
-  editMode: boolean;
   isAdmin: boolean;
-  onPriceChange: (productId: string, field: keyof PriceMap[string], value: number) => void;
-  onStatusChange: (productId: string, active: boolean) => void;
   products: CatalogProduct[];
 }) {
   return (
@@ -383,11 +285,7 @@ function ProductTable({
             </td>
             {isAdmin ? (
               <td className="status-cell">
-                {editMode ? (
-                  <StatusToggle active={product.active !== false} onChange={(active) => onStatusChange(product.id, active)} />
-                ) : (
-                  <StatusBadge active={product.active !== false} />
-                )}
+                <StatusBadge active={product.active !== false} />
               </td>
             ) : null}
             {isAdmin ? (
@@ -397,19 +295,11 @@ function ProductTable({
             ) : null}
             {isAdmin ? (
               <td className="price-cell">
-                {editMode ? (
-                  <PriceInput onChange={(value) => onPriceChange(product.id, "cost", value)} value={product.cost ?? 0} />
-                ) : (
-                  `¥${formatPrice(product.cost ?? 0)}`
-                )}
+                ¥{formatPrice(product.cost ?? 0)}
               </td>
             ) : null}
             <td className="price-cell">
-              {isAdmin && editMode ? (
-                <PriceInput onChange={(value) => onPriceChange(product.id, "retail", value)} value={product.retail} />
-              ) : (
-                `¥${formatPrice(product.retail)}`
-              )}
+              ¥{formatPrice(product.retail)}
             </td>
             {isAdmin ? (
               <td className="price-cell profit-price">
@@ -417,11 +307,7 @@ function ProductTable({
               </td>
             ) : null}
             <td className="price-cell agent-price">
-              {isAdmin && editMode ? (
-                <PriceInput onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
-              ) : (
-                `¥${formatPrice(product.agent)}`
-              )}
+              ¥{formatPrice(product.agent)}
             </td>
           </tr>
         ))}
@@ -431,16 +317,10 @@ function ProductTable({
 }
 
 function ProductCards({
-  editMode,
   isAdmin,
-  onPriceChange,
-  onStatusChange,
   products
 }: {
-  editMode: boolean;
   isAdmin: boolean;
-  onPriceChange: (productId: string, field: keyof PriceMap[string], value: number) => void;
-  onStatusChange: (productId: string, active: boolean) => void;
   products: CatalogProduct[];
 }) {
   return (
@@ -452,32 +332,17 @@ function ProductCards({
           </h3>
           {isAdmin ? (
             <div className="card-status">
-              {editMode ? (
-                <StatusToggle active={product.active !== false} onChange={(active) => onStatusChange(product.id, active)} />
-              ) : (
-                <StatusBadge active={product.active !== false} />
-              )}
+              <StatusBadge active={product.active !== false} />
             </div>
           ) : null}
           {isAdmin ? <ChannelInfo product={product} /> : null}
           <div className="card-prices">
             {isAdmin ? (
               <>
-                {editMode ? (
-                  <>
-                    <EditablePriceBlock label="成本" onChange={(value) => onPriceChange(product.id, "cost", value)} value={product.cost ?? 0} />
-                    <EditablePriceBlock label="零售" onChange={(value) => onPriceChange(product.id, "retail", value)} value={product.retail} />
-                    <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
-                    <EditablePriceBlock highlight label="代理返现 (每单)" onChange={(value) => onPriceChange(product.id, "agent", value)} value={product.agent} />
-                  </>
-                ) : (
-                  <>
-                    <PriceBlock label="成本" value={product.cost ?? 0} />
-                    <PriceBlock label="零售" value={product.retail} />
-                    <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
-                    <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
-                  </>
-                )}
+                <PriceBlock label="成本" value={product.cost ?? 0} />
+                <PriceBlock label="零售" value={product.retail} />
+                <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
+                <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
               </>
             ) : (
               <>
@@ -523,22 +388,6 @@ function ProductName({ product }: { product: CatalogProduct }) {
 
 function StatusBadge({ active }: { active: boolean }) {
   return <span className={active ? "status-badge is-active" : "status-badge"}>{active ? "上架" : "下架"}</span>;
-}
-
-function StatusToggle({ active, onChange }: { active: boolean; onChange: (active: boolean) => void }) {
-  return (
-    <button
-      aria-pressed={active}
-      className={active ? "status-toggle is-active" : "status-toggle"}
-      onClick={() => onChange(!active)}
-      type="button"
-    >
-      <span className="switch-track">
-        <span className="switch-thumb" />
-      </span>
-      <span className="switch-label">{active ? "上架" : "下架"}</span>
-    </button>
-  );
 }
 
 function ChannelInfo({ product }: { product: CatalogProduct }) {
@@ -638,117 +487,4 @@ function PriceBlock({ highlight, label, profit, value }: { highlight?: boolean; 
       <div className="price-value">¥{formatPrice(value)}</div>
     </div>
   );
-}
-
-function EditablePriceBlock({
-  highlight,
-  label,
-  onChange,
-  value
-}: {
-  highlight?: boolean;
-  label: string;
-  onChange: (value: number) => void;
-  value: number;
-}) {
-  return (
-    <div className={highlight ? "price-block is-agent" : "price-block"}>
-      <div className="price-label">{label}</div>
-      <PriceInput onChange={onChange} value={value} />
-    </div>
-  );
-}
-
-function PriceInput({ onChange, value }: { onChange: (value: number) => void; value: number }) {
-  return (
-    <label className="price-input-wrap">
-      <span>¥</span>
-      <input
-        min="0"
-        onChange={(event) => onChange(Number(event.target.value))}
-        step="0.1"
-        type="number"
-        value={Number.isFinite(value) ? value : 0}
-      />
-    </label>
-  );
-}
-
-function getPriceMapFromGroups(groups: CatalogGroup[] | ProductGroup[]) {
-  const entries: [string, PriceMap[string]][] = [];
-
-  for (const group of groups) {
-    for (const product of group.products) {
-      entries.push([product.id, { active: product.active ?? true, agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
-    }
-    for (const subgroup of group.subgroups ?? []) {
-      for (const product of subgroup.products) {
-        entries.push([product.id, { active: product.active ?? true, agent: product.agent, cost: product.cost ?? 0, retail: product.retail }]);
-      }
-    }
-  }
-
-  return Object.fromEntries(entries) as PriceMap;
-}
-
-function updateProductStatus(groups: CatalogGroup[], productId: string, active: boolean) {
-  const updateProduct = (product: CatalogProduct) =>
-    product.id === productId
-      ? {
-          ...product,
-          active
-        }
-      : product;
-
-  return groups.map((group) => ({
-    ...group,
-    products: group.products.map(updateProduct),
-    subgroups: group.subgroups?.map((subgroup) => ({
-      ...subgroup,
-      products: subgroup.products.map(updateProduct)
-    }))
-  }));
-}
-
-function updateProductPrice(
-  groups: CatalogGroup[],
-  productId: string,
-  field: keyof PriceMap[string],
-  value: number
-) {
-  const updateProduct = (product: CatalogProduct) =>
-    product.id === productId
-      ? {
-          ...product,
-          [field]: Number.isFinite(value) ? value : 0
-        }
-      : product;
-
-  return groups.map((group) => ({
-    ...group,
-    products: group.products.map(updateProduct),
-    subgroups: group.subgroups?.map((subgroup) => ({
-      ...subgroup,
-      products: subgroup.products.map(updateProduct)
-    }))
-  }));
-}
-
-function applyPriceMapToGroups(groups: CatalogGroup[], prices: PriceMap) {
-  const applyProduct = (product: CatalogProduct) => ({
-    ...product,
-    active: prices[product.id]?.active ?? product.active ?? true,
-    agent: prices[product.id]?.agent ?? product.agent,
-    cost: prices[product.id]?.cost ?? product.cost,
-    retail: prices[product.id]?.retail ?? product.retail
-  });
-
-  return groups.map((group) => ({
-    ...group,
-    products: group.products.map(applyProduct),
-    subgroups: group.subgroups?.map((subgroup) => ({
-      ...subgroup,
-      products: subgroup.products.map(applyProduct)
-    }))
-  }));
 }
