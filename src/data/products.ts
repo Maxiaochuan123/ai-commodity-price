@@ -185,14 +185,14 @@ const rawProductGroups: ProductGroup[] = [
         agent: 50,
         docUrl: "https://www.yuque.com/u8042174/kb/ik28za8v1h2g1e6t?singleDoc# 《GPT Pro 20x 1个月直充【质保订阅 30天】【可开发票】》"
       },
-      {
-        id: "chatgpt-cyber-tac-kyc",
-        name: "GPT Cyber(TAC) KYC 认证服务",
-        cost: 55,
-        retail: 88,
-        agent: 10,
-        docUrl: "https://www.yuque.com/u8042174/kb/zs2eop2qoxteului?singleDoc# 《GPT Cyber(TAC) KYC 认证服务》"
-      }
+      // {
+      //   id: "chatgpt-cyber-tac-kyc",
+      //   name: "GPT Cyber(TAC) KYC 认证服务",
+      //   cost: 55,
+      //   retail: 88,
+      //   agent: 10,
+      //   docUrl: "https://www.yuque.com/u8042174/kb/zs2eop2qoxteului?singleDoc# 《GPT Cyber(TAC) KYC 认证服务》"
+      // }
     ]
   },
   {
