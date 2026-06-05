@@ -115,19 +115,19 @@ const rawProductGroups: ProductGroup[] = [
     id: "chatgpt",
     name: "ChatGPT 系列",
     products: [
-      {
-        id: "chatgpt-codex-phone-code",
-        name: "Codex 手机号接码【虚拟卡 一次性】",
-        cost: 0.9,
-        retail: 10,
-        agent: 3,
-        docUrl: "https://www.yuque.com/u8042174/kb/pog9pz364owob5bg?singleDoc# 《Codex 手机接码教程》"
-      },
+      // {
+      //   id: "chatgpt-codex-phone-code",
+      //   name: "Codex 手机号接码【虚拟卡 一次性】",
+      //   cost: 0.9,
+      //   retail: 10,
+      //   agent: 3,
+      //   docUrl: "https://www.yuque.com/u8042174/kb/pog9pz364owob5bg?singleDoc# 《Codex 手机接码教程》"
+      // },
       {
         id: "chatgpt-codex-phone-code-2",
-        name: "Codex 手机号接码【实体卡 长效20~30天】【无惧二次验证】",
-        cost: 6,
-        retail: 16,
+        name: "Codex 手机号接码【实体卡 长效10天左右】【无惧二次验证】",
+        cost: 2.66,
+        retail: 10,
         agent: 3,
         docUrl: "https://www.yuque.com/u8042174/kb/cl1zwst44tqd09er?singleDoc# 《Codex 手机接码教程-实体卡长效【20~30天内】》"
       },
@@ -142,8 +142,8 @@ const rawProductGroups: ProductGroup[] = [
       {
         id: "chatgpt-plus-account-1m-no-warranty",
         name: "GPT Plus 1个月成品号 10单起售【100单 中 90% 活超过半个月 10% 一周左右】【无质保，介意勿购】",
-        cost: 25,
-        retail: 48,
+        cost: 250,
+        retail: 480,
         agent: 100
       },
       {
@@ -166,7 +166,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "GPT Plus 1个月直充【IOS老牌土区稳定】【质保订阅 30天】",
         cost: 95,
         retail: 138,
-        agent: 13,
+        agent: 15,
         docUrl: "https://www.yuque.com/u8042174/kb/xc6oydbfh9wnbwbe?singleDoc# 《GPT Plus 1个月直充【IOS老牌土区稳定】【质保订阅 30天】》"
       },
       {
@@ -286,8 +286,8 @@ const rawProductGroups: ProductGroup[] = [
       },
       {
         id: "google-gmail-old-22-24",
-        name: "google邮箱【稳定老号】【22-24年】",
-        cost: 4.5,
+        name: "google邮箱【稳定老号】【22-24年】【美区】",
+        cost: 5.5,
         retail: 16,
         agent: 5,
         docUrl: "https://www.yuque.com/u8042174/kb/gkhtil3pzub0wz5t"
@@ -303,7 +303,7 @@ const rawProductGroups: ProductGroup[] = [
         name: "SuperGrok 官方直充 1个月会员【质保订阅30天】",
         cost: 65,
         retail: 106,
-        agent: 85,
+        agent: 18,
         docUrl: "https://www.yuque.com/u8042174/kb/dgvudgqubz32eii4?singleDoc#"
       },
       {

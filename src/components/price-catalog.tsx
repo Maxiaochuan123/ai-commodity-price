@@ -208,7 +208,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
         </div>
       </div>
 
-      <section className="container catalog" id="catalog">
+      <section className={`container catalog ${admin.isAdmin ? "is-admin-mode" : ""}`} id="catalog">
         <div className="group-list">
           {groups.map((group) => (
             <section className="product-group" id={group.id} key={group.id}>
@@ -274,6 +274,7 @@ function ProductTable({
           {isAdmin ? <th className="price-cell">成本</th> : null}
           <th className="price-cell">零售</th>
           {isAdmin ? <th className="price-cell profit-price">零售利润</th> : null}
+          {isAdmin ? <th className="price-cell profit-price">扣除代理后利润</th> : null}
           <th className="price-cell agent-price">代理返现 (每单)</th>
         </tr>
       </thead>
@@ -304,6 +305,11 @@ function ProductTable({
             {isAdmin ? (
               <td className="price-cell profit-price">
                 ¥{formatPrice(product.retail - (product.cost ?? 0))}
+              </td>
+            ) : null}
+            {isAdmin ? (
+              <td className="price-cell profit-price">
+                ¥{formatPrice(product.retail - (product.cost ?? 0) - product.agent)}
               </td>
             ) : null}
             <td className="price-cell agent-price">
@@ -342,6 +348,7 @@ function ProductCards({
                 <PriceBlock label="成本" value={product.cost ?? 0} />
                 <PriceBlock label="零售" value={product.retail} />
                 <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
+                <PriceBlock profit label="扣除代理后利润" value={product.retail - (product.cost ?? 0) - product.agent} />
                 <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
               </>
             ) : (

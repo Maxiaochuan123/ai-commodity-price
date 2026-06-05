@@ -4,7 +4,9 @@ import { AdminProvider, BrandLoginButton } from "@/components/admin-shell";
 import { BecomeAgentButton } from "@/components/hero-actions";
 import { WechatButton } from "@/components/wechat-button";
 import { PriceCatalog } from "@/components/price-catalog";
+import { BackToTop } from "@/components/back-to-top";
 import { contact, productGroups } from "@/data/products";
+
 
 export default function Home() {
   return (
@@ -83,6 +85,7 @@ export default function Home() {
             <TrustItem icon={<Zap />} title="快速交付" text="热门 AI 商品集中展示，下单路径更短。" />
           </div>
         </section>
+        <BackToTop />
       </main>
     </AdminProvider>
   );
