@@ -30,8 +30,10 @@ export default function Home() {
           <div className="hero-summary">
             <span>160+ 售后群</span>
             <span>60+ 博主合作渠道</span>
-            <span>代理合作</span>
-            <span>下单前先读说明</span>
+            <span>3+ 公司合作</span>
+            <span>30+ 代理合作</span>
+            <span>轻松代理</span>
+            <span>持续更新</span>
           </div>
 
           <div className="hero-showcase" aria-label="服务亮点">

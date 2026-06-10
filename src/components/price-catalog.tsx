@@ -1,10 +1,12 @@
 "use client";
 
-import { Copy, ExternalLink, Lock, Unlock, X } from "lucide-react";
+import { Copy, ExternalLink, Lock, ShieldCheck, Unlock, X } from "lucide-react";
 import type { FormEvent, MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdmin } from "@/components/admin-shell";
+import { BecomeAgentModal } from "@/components/hero-actions";
+import { WechatLink } from "@/components/wechat-button";
 import type { Product } from "@/data/products";
 import type { ProductGroup } from "@/data/products";
 
@@ -68,10 +70,14 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
 
   useEffect(() => {
+    if (admin.isAdmin) {
+      setIsUnlocked(true);
+      return;
+    }
     if (typeof window !== "undefined") {
       setIsUnlocked(localStorage.getItem("agent_unlocked") === "true");
     }
-  }, []);
+  }, [admin.isAdmin]);
 
   const handleUnlock = useCallback(() => {
     setUnlockModalOpen(true);
@@ -513,14 +519,24 @@ function ProductName({ product }: { product: CatalogProduct }) {
   return (
     <span className="product-entry">
       <span className="product-entry-name">
-        <span className="product-title-text">{product.name}</span>
+        <a 
+          className="product-title-text" 
+          href={product.docUrl} 
+          rel="noreferrer" 
+          target="_blank"
+          style={{ 
+            color: "inherit", 
+            textDecoration: "none"
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; e.currentTarget.style.color = "#0f766e"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; e.currentTarget.style.color = "inherit"; }}
+        >
+          {product.name}
+          <ExternalLink className="icon-xs" style={{ display: "inline", marginLeft: "4px", verticalAlign: "middle" }} />
+        </a>
         {offlineBadge}
       </span>
       <span className="product-doc-actions">
-        <a className="product-doc-link" href={product.docUrl} rel="noreferrer" target="_blank">
-          说明
-          <ExternalLink className="icon-xs" />
-        </a>
         <CopyDocButton name={product.name} url={product.docUrl} />
       </span>
     </span>
@@ -612,7 +628,7 @@ function CopyDocButton({ name, url }: { name: string; url: string }) {
       onClick={handleCopy}
       type="button"
     >
-      {copied ? "已复制" : "复制"}
+      {copied ? "已复制" : "复制文档"}
       <Copy className="icon-xs" />
     </button>
   );
@@ -631,6 +647,7 @@ function PriceBlock({ highlight, label, profit, value }: { highlight?: boolean; 
 }
 
 function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlockSuccess: () => void }) {
+  const [step, setStep] = useState<"choice" | "enter_code" | "become_agent">("choice");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
 
@@ -643,6 +660,48 @@ function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlo
     } else {
       setError("代理码错误");
     }
+  }
+
+  if (step === "choice") {
+    return createPortal(
+      <div aria-modal="true" className="modal-backdrop" role="dialog">
+        <div className="agent-modal login-modal" style={{ maxWidth: "380px" }}>
+          <div className="agent-modal-header">
+            <div>
+              <h2>选择解锁方式</h2>
+              <p>请选择您的身份以继续</p>
+            </div>
+            <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+              <X className="icon-xs" />
+            </button>
+          </div>
+
+          <div className="agent-modal-body" style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "24px 20px" }}>
+            <button 
+              className="button button-primary" 
+              onClick={() => setStep("enter_code")}
+              style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: "15px" }}
+              type="button"
+            >
+              我是代理
+            </button>
+            <button 
+              className="button button-secondary" 
+              onClick={() => setStep("become_agent")}
+              style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: "15px" }}
+              type="button"
+            >
+              我想成为代理
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  if (step === "become_agent") {
+    return <BecomeAgentModal onClose={() => setStep("choice")} />;
   }
 
   return createPortal(
@@ -664,7 +723,7 @@ function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlo
             <input
               autoFocus
               onChange={(event) => setCode(event.target.value)}
-              placeholder="请输入代理密匙"
+              placeholder="请输入代理码"
               type="password"
               value={code}
             />
@@ -673,8 +732,8 @@ function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlo
         </div>
 
         <div className="agent-modal-actions">
-          <button className="button button-secondary" onClick={onClose} type="button">
-            取消
+          <button className="button button-secondary" onClick={() => setStep("choice")} type="button">
+            返回
           </button>
           <button className="button button-primary" type="submit">
             确定

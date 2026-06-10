@@ -86,3 +86,74 @@ export function WechatButton({ wechat }: { wechat: string }) {
     </button>
   );
 }
+
+export function WechatLink({ wechat }: { wechat: string }) {
+  const [copyState, setCopyState] = useState<CopyState>("idle");
+  const launchTimerRef = useRef<number | null>(null);
+  const resetTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (launchTimerRef.current) window.clearTimeout(launchTimerRef.current);
+      if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current);
+    };
+  }, []);
+
+  async function handleClick() {
+    if (launchTimerRef.current) window.clearTimeout(launchTimerRef.current);
+    if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current);
+
+    const copied = await copyText(wechat);
+    setCopyState(copied ? "copied" : "failed");
+
+    launchTimerRef.current = window.setTimeout(() => {
+      window.location.href = "weixin://";
+      setCopyState("idle");
+    }, 500);
+
+    if (!copied) {
+      resetTimerRef.current = window.setTimeout(() => {
+        setCopyState("idle");
+      }, 500);
+    }
+  }
+
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+      联系微信：
+      <span
+        onClick={handleClick}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "4px",
+          color: "#0f766e",
+          fontWeight: 700,
+          cursor: "pointer",
+          transition: "color 150ms ease"
+        }}
+        title="点击复制微信并打开微信"
+      >
+        <svg 
+          aria-hidden="true" 
+          className="wechat-icon" 
+          style={{ 
+            width: "18px", 
+            height: "16px"
+          }} 
+          viewBox="0 0 32 28"
+        >
+          <path d="M12.6 2.4C6.7 2.4 2 6.2 2 11c0 2.7 1.5 5.1 3.9 6.7l-.8 2.8 3.2-1.6c1.3.4 2.7.7 4.3.7 5.9 0 10.6-3.9 10.6-8.6S18.5 2.4 12.6 2.4Z" />
+          <path d="M20.5 10.2c5.3 0 9.5 3.4 9.5 7.6 0 2.3-1.2 4.3-3.2 5.7l.7 2.5-2.9-1.4c-1.2.4-2.6.6-4.1.6-5.3 0-9.5-3.4-9.5-7.5s4.2-7.5 9.5-7.5Z" />
+          <circle cx="8.8" cy="9.8" r="1.2" />
+          <circle cx="16.4" cy="9.8" r="1.2" />
+          <circle cx="17.5" cy="16.9" r="1" />
+          <circle cx="24.1" cy="16.9" r="1" />
+        </svg>
+        <span>
+          {copyState === "copied" ? "已复制！" : copyState === "failed" ? "复制失败" : wechat}
+        </span>
+      </span>
+    </span>
+  );
+}

@@ -1158,6 +1158,29 @@ input {
   line-height: 1.75;
 }
 
+/* Override WechatButton colors inside modal to remove black background and use accent styling */
+.agent-modal-body .wechat-button.button-primary {
+  border-color: #0f766e;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.agent-modal-body .wechat-button.button-primary:hover {
+  background: #ccfbf1;
+}
+
+.agent-modal-body .wechat-button.button-primary.is-success,
+.agent-modal-body .wechat-button.button-primary.is-success:hover {
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.agent-modal-body .wechat-button.button-primary.is-success .wechat-icon circle {
+  fill: #ffffff;
+}
+
+
 .agent-modal-body p {
   margin: 0 0 10px;
 }
@@ -1441,7 +1464,7 @@ input {
   }
 
   .modal-backdrop {
-    align-items: flex-start;
+    align-items: center;
     padding: 16px;
   }
 
