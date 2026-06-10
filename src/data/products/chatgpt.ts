@@ -15,7 +15,7 @@ export const chatgptGroup: ProductGroup = {
       cost: 6.7,
       retail: 18,
       agent: 3,
-      docUrl: "https://www.yuque.com/u8042174/kb/cqmvx33vg7rct7d7?singleDoc#",
+      docUrl: "https://www.yuque.com/u8042174/kb/cl1zwst44tqd09er?singleDoc#",
       channel: chatgptCodexPhoneCode2Channel
     },
     {
