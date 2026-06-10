@@ -387,7 +387,7 @@ function ProductName({ product }: { product: CatalogProduct }) {
           说明
           <ExternalLink className="icon-xs" />
         </a>
-        <CopyDocButton url={product.docUrl} />
+        <CopyDocButton name={product.name} url={product.docUrl} />
       </span>
     </span>
   );
@@ -448,7 +448,7 @@ function ChannelInfo({ product }: { product: CatalogProduct }) {
   );
 }
 
-function CopyDocButton({ url }: { url: string }) {
+function CopyDocButton({ name, url }: { name: string; url: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<number | null>(null);
 
@@ -464,7 +464,7 @@ function CopyDocButton({ url }: { url: string }) {
 
     if (timerRef.current) window.clearTimeout(timerRef.current);
 
-    const success = await copyText(url);
+    const success = await copyText(`${url} ${name}`);
     if (!success) return;
 
     setCopied(true);
