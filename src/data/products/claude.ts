@@ -51,7 +51,7 @@ export const claudeGroup: ProductGroup = {
           cost: 430,
           retail: 530,
           agent: 48,
-          docUrl: "https://www.yuque.com/u8042174/kb/useot3mtc2ofki0h?singleDoc#",
+          docUrl: "https://www.yuque.com/u8042174/kb/hk6oqwvkkslgw9ba?singleDoc#",
           channel: lemonWatermelonChannel
         }
       ]
