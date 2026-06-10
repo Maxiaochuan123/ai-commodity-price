@@ -1,7 +1,7 @@
 "use client";
 
-import { Copy, ExternalLink, X } from "lucide-react";
-import type { MouseEvent } from "react";
+import { Copy, ExternalLink, Lock, Unlock, X } from "lucide-react";
+import type { FormEvent, MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdmin } from "@/components/admin-shell";
@@ -64,6 +64,18 @@ async function copyText(text: string) {
 export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const admin = useAdmin();
   const [activeGroupId, setActiveGroupId] = useState(groups[0]?.id ?? "");
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsUnlocked(localStorage.getItem("agent_unlocked") === "true");
+    }
+  }, []);
+
+  const handleUnlock = useCallback(() => {
+    setUnlockModalOpen(true);
+  }, []);
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const manualScrollUntilRef = useRef(0);
@@ -220,12 +232,16 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
               <div className="table-shell">
                 <ProductTable
                   isAdmin={admin.isAdmin}
+                  isUnlocked={isUnlocked}
+                  onUnlock={handleUnlock}
                   products={group.products}
                 />
               </div>
 
               <ProductCards
                 isAdmin={admin.isAdmin}
+                isUnlocked={isUnlocked}
+                onUnlock={handleUnlock}
                 products={group.products}
               />
 
@@ -239,12 +255,16 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                   <div className="table-shell">
                     <ProductTable
                       isAdmin={admin.isAdmin}
+                      isUnlocked={isUnlocked}
+                      onUnlock={handleUnlock}
                       products={subgroup.products}
                     />
                   </div>
 
                   <ProductCards
                     isAdmin={admin.isAdmin}
+                    isUnlocked={isUnlocked}
+                    onUnlock={handleUnlock}
                     products={subgroup.products}
                   />
                 </div>
@@ -253,80 +273,106 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
           ))}
         </div>
       </section>
+      {unlockModalOpen ? (
+        <UnlockModal
+          onClose={() => setUnlockModalOpen(false)}
+          onUnlockSuccess={() => setIsUnlocked(true)}
+        />
+      ) : null}
     </>
   );
 }
 
 function ProductTable({
   isAdmin,
+  isUnlocked,
+  onUnlock,
   products
 }: {
   isAdmin: boolean;
+  isUnlocked: boolean;
+  onUnlock: () => void;
   products: CatalogProduct[];
 }) {
   return (
-    <table className="price-table">
-      <thead>
-        <tr>
-          <th>商品</th>
-          {isAdmin ? <th className="status-cell">状态</th> : null}
-          {isAdmin ? <th className="channel-cell">渠道</th> : null}
-          {isAdmin ? <th className="price-cell">成本</th> : null}
-          <th className="price-cell">零售</th>
-          {isAdmin ? <th className="price-cell profit-price">零售利润</th> : null}
-          {isAdmin ? <th className="price-cell profit-price">扣除代理后利润</th> : null}
-          <th className="price-cell agent-price">代理返现 (每单)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {products.map((product) => (
-          <tr className={product.active === false ? "is-offline" : undefined} key={product.id}>
-            <td className="product-name">
-              <ProductName product={product} />
-            </td>
-            {isAdmin ? (
-              <td className="status-cell">
-                <StatusBadge active={product.active !== false} />
-              </td>
-            ) : null}
-            {isAdmin ? (
-              <td className="channel-cell">
-                <ChannelInfo product={product} />
-              </td>
-            ) : null}
-            {isAdmin ? (
-              <td className="price-cell">
-                ¥{formatPrice(product.cost ?? 0)}
-              </td>
-            ) : null}
-            <td className="price-cell">
-              ¥{formatPrice(product.retail)}
-            </td>
-            {isAdmin ? (
-              <td className="price-cell profit-price">
-                ¥{formatPrice(product.retail - (product.cost ?? 0))}
-              </td>
-            ) : null}
-            {isAdmin ? (
-              <td className="price-cell profit-price">
-                ¥{formatPrice(product.retail - (product.cost ?? 0) - product.agent)}
-              </td>
-            ) : null}
-            <td className="price-cell agent-price">
-              ¥{formatPrice(product.agent)}
-            </td>
+    <div className={!isUnlocked ? "table-agent-lock-wrap agent-locked" : "table-agent-lock-wrap"} onClick={!isUnlocked ? onUnlock : undefined}>
+      <table className="price-table">
+        <thead>
+          <tr>
+            <th>商品</th>
+            {isAdmin ? <th className="status-cell">状态</th> : null}
+            {isAdmin ? <th className="channel-cell">渠道</th> : null}
+            {isAdmin ? <th className="price-cell">成本</th> : null}
+            <th className="price-cell">零售</th>
+            {isAdmin ? <th className="price-cell profit-price">零售利润</th> : null}
+            {isAdmin ? <th className="price-cell profit-price">扣除代理后利润</th> : null}
+            <th className="price-cell agent-price">
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                代理返现 (每单)
+                {!isUnlocked ? <Lock className="icon-xs" /> : <Unlock className="icon-xs" />}
+              </span>
+            </th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {products.map((product) => (
+            <tr
+              className={product.active === false ? "is-offline" : undefined}
+              key={product.id}
+            >
+              <td className="product-name">
+                <ProductName product={product} />
+              </td>
+              {isAdmin ? (
+                <td className="status-cell">
+                  <StatusBadge active={product.active !== false} />
+                </td>
+              ) : null}
+              {isAdmin ? (
+                <td className="channel-cell">
+                  <ChannelInfo product={product} />
+                </td>
+              ) : null}
+              {isAdmin ? (
+                <td className="price-cell">
+                  ¥{formatPrice(product.cost ?? 0)}
+                </td>
+              ) : null}
+              <td className="price-cell">
+                ¥{formatPrice(product.retail)}
+              </td>
+              {isAdmin ? (
+                <td className="price-cell profit-price">
+                  ¥{formatPrice(product.retail - (product.cost ?? 0))}
+                </td>
+              ) : null}
+              {isAdmin ? (
+                <td className="price-cell profit-price">
+                  ¥{formatPrice(product.retail - (product.cost ?? 0) - product.agent)}
+                </td>
+              ) : null}
+              <td
+                className={!isUnlocked ? "price-cell agent-price agent-price-locked" : "price-cell agent-price"}
+              >
+                ¥{formatPrice(product.agent)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
 function ProductCards({
   isAdmin,
+  isUnlocked,
+  onUnlock,
   products
 }: {
   isAdmin: boolean;
+  isUnlocked: boolean;
+  onUnlock: () => void;
   products: CatalogProduct[];
 }) {
   return (
@@ -349,12 +395,100 @@ function ProductCards({
                 <PriceBlock label="零售" value={product.retail} />
                 <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
                 <PriceBlock profit label="扣除代理后利润" value={product.retail - (product.cost ?? 0) - product.agent} />
-                <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
+                {isUnlocked ? (
+                  <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
+                ) : (
+                  <div
+                    className="price-block is-agent"
+                    onClick={onUnlock}
+                    style={{
+                      cursor: "pointer",
+                      position: "relative",
+                      overflow: "hidden",
+                      backgroundColor: "rgba(255, 255, 255, 0.05)",
+                      backdropFilter: "blur(6px)",
+                      WebkitBackdropFilter: "blur(6px)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)"
+                    }}
+                  >
+                    <div className="price-label">代理返现 (每单)</div>
+                    <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(product.agent)}</div>
+                    <div style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(0, 0, 0, 0.15)",
+                      zIndex: 2
+                    }}>
+                      <div style={{
+                        background: "rgba(0, 0, 0, 0.65)",
+                        borderRadius: "50%",
+                        padding: "6px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                        border: "1px solid rgba(255, 255, 255, 0.2)"
+                      }}>
+                        <Lock className="icon-xs" style={{ color: "#fff" }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <PriceBlock label="零售" value={product.retail} />
-                <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
+                {isUnlocked ? (
+                  <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
+                ) : (
+                  <div
+                    className="price-block is-agent"
+                    onClick={onUnlock}
+                    style={{
+                      cursor: "pointer",
+                      position: "relative",
+                      overflow: "hidden",
+                      backgroundColor: "rgba(255, 255, 255, 0.05)",
+                      backdropFilter: "blur(6px)",
+                      WebkitBackdropFilter: "blur(6px)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)"
+                    }}
+                  >
+                    <div className="price-label">代理返现 (每单)</div>
+                    <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(product.agent)}</div>
+                    <div style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(0, 0, 0, 0.15)",
+                      zIndex: 2
+                    }}>
+                      <div style={{
+                        background: "rgba(0, 0, 0, 0.65)",
+                        borderRadius: "50%",
+                        padding: "6px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                        border: "1px solid rgba(255, 255, 255, 0.2)"
+                      }}>
+                        <Lock className="icon-xs" style={{ color: "#fff" }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -493,5 +627,61 @@ function PriceBlock({ highlight, label, profit, value }: { highlight?: boolean; 
       <div className="price-label">{label}</div>
       <div className="price-value">¥{formatPrice(value)}</div>
     </div>
+  );
+}
+
+function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlockSuccess: () => void }) {
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (code === "mxcsgnhdl") {
+      localStorage.setItem("agent_unlocked", "true");
+      onUnlockSuccess();
+      onClose();
+    } else {
+      setError("代理码错误");
+    }
+  }
+
+  return createPortal(
+    <div aria-modal="true" className="modal-backdrop" role="dialog">
+      <form className="agent-modal login-modal" onSubmit={submit}>
+        <div className="agent-modal-header">
+          <div>
+            <h2>请输入代理码</h2>
+            <p>输入正确的代理码以解锁代理返现额度。</p>
+          </div>
+          <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+            <X className="icon-xs" />
+          </button>
+        </div>
+
+        <div className="agent-modal-body login-form">
+          <label>
+            代理码
+            <input
+              autoFocus
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="请输入代理密匙"
+              type="password"
+              value={code}
+            />
+          </label>
+          {error ? <p className="form-error">{error}</p> : null}
+        </div>
+
+        <div className="agent-modal-actions">
+          <button className="button button-secondary" onClick={onClose} type="button">
+            取消
+          </button>
+          <button className="button button-primary" type="submit">
+            确定
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
   );
 }
