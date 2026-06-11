@@ -1,12 +1,13 @@
 "use client";
 
-import { Coins, Copy, ExternalLink, Lock, ShieldCheck, Unlock, X } from "lucide-react";
+import { Check, Coins, Copy, ExternalLink, Lock, ShieldCheck, Unlock, X } from "lucide-react";
 import type { FormEvent, MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdmin } from "@/components/admin-shell";
 import { WechatLink } from "@/components/wechat-button";
 import { ApplyUpgradeButton } from "@/components/apply-upgrade-button";
+import { LottiePlayer } from "@/components/lottie-player";
 import type { Product } from "@/data/products";
 import type { ProductGroup } from "@/data/products";
 
@@ -69,6 +70,8 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const [agentLevel, setAgentLevel] = useState<"none" | "primary" | "secondary">("none");
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [levelNotification, setLevelNotification] = useState<"primary" | "secondary" | null>(null);
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
     if (admin.isAdmin) {
@@ -80,6 +83,9 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       const storedWechatId = localStorage.getItem("agent_wechat_id");
       if ((stored === "primary" || stored === "secondary") && storedWechatId) {
         setAgentLevel(stored);
+
+        if (hasFetchedRef.current) return;
+        hasFetchedRef.current = true;
 
         // Verify status with backend to log out if disabled or deleted
         fetch("/api/agents/login", {
@@ -98,6 +104,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
               if (verifiedLevel !== stored) {
                 localStorage.setItem("agent_unlocked_level", verifiedLevel);
                 setAgentLevel(verifiedLevel);
+                setLevelNotification(verifiedLevel);
               }
             }
           })
@@ -326,6 +333,52 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       {upgradeModalOpen ? (
         <UpgradeToPrimaryModal onClose={() => setUpgradeModalOpen(false)} />
       ) : null}
+      {levelNotification ? (
+        <div aria-modal="true" className="modal-backdrop" role="dialog" style={{ zIndex: 100 }}>
+          <div className="agent-modal login-modal" style={{ maxWidth: "380px", textAlign: "center" }}>
+            <div className="agent-modal-body" style={{ padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+              <LottiePlayer
+                animationPath="/success.json"
+                className={levelNotification === "primary" ? "lottie-success-gold" : "lottie-success-green"}
+                style={{ width: 100, height: 100 }}
+              />
+              <div>
+                <h2 style={{ fontSize: "20px", color: "#111827", margin: "0 0 8px 0" }}>
+                  {levelNotification === "primary" ? "已升级为 1 级代理" : "价格目录已更新"}
+                </h2>
+                <p style={{ fontSize: "14px", color: "#475569", margin: 0, lineHeight: 1.6 }}>
+                  {levelNotification === "primary" 
+                    ? "已为您解锁更优惠的 1 级代理价。" 
+                    : "已按最新代理等级为您更新价格。"}
+                </p>
+              </div>
+              <button
+                className="button button-premium-teal"
+                onClick={() => setLevelNotification(null)}
+                style={{ width: "100%", marginTop: "8px", justifyContent: "center" }}
+                type="button"
+              >
+                开始查看价格
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <svg width="0" height="0" style={{ position: "absolute", width: 0, height: 0 }} xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gold-gradient-flow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#bf953f">
+              <animate attributeName="stop-color" values="#bf953f; #fcf6ba; #b38728; #fbf5b7; #bf953f" dur="3s" repeatCount="indefinite" />
+            </stop>
+            <stop offset="50%" stop-color="#fcf6ba">
+              <animate attributeName="stop-color" values="#fcf6ba; #b38728; #fbf5b7; #bf953f; #fcf6ba" dur="3s" repeatCount="indefinite" />
+            </stop>
+            <stop offset="100%" stop-color="#b38728">
+              <animate attributeName="stop-color" values="#b38728; #fbf5b7; #bf953f; #fcf6ba; #b38728" dur="3s" repeatCount="indefinite" />
+            </stop>
+          </linearGradient>
+        </defs>
+      </svg>
     </>
   );
 }
@@ -832,9 +885,11 @@ export function UnlockModal({
   const [regCode, setRegCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [unlockedSuccessLevel, setUnlockedSuccessLevel] = useState<"primary" | "secondary" | null>(null);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     if (!loginWechat.trim()) {
       setError("请输入微信号");
       return;
@@ -856,8 +911,7 @@ export function UnlockModal({
       const level = data.agent.level === 1 ? "primary" : "secondary";
       localStorage.setItem("agent_unlocked_level", level);
       localStorage.setItem("agent_wechat_id", data.agent.wechatId);
-      onUnlockSuccess(level as "primary" | "secondary");
-      onClose();
+      setUnlockedSuccessLevel(level as "primary" | "secondary");
     } catch {
       setError("网络错误");
     } finally {
@@ -867,6 +921,7 @@ export function UnlockModal({
 
   async function handleRegister(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     if (!regName.trim() || !regWechat.trim() || !regCode.trim()) {
       setError("请填写完整信息");
       return;
@@ -890,13 +945,49 @@ export function UnlockModal({
       }
       localStorage.setItem("agent_unlocked_level", "secondary");
       localStorage.setItem("agent_wechat_id", regWechat.trim());
-      onUnlockSuccess("secondary");
-      onClose();
+      setUnlockedSuccessLevel("secondary");
     } catch {
       setError("网络错误");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (unlockedSuccessLevel) {
+    const isLevel1 = unlockedSuccessLevel === "primary";
+    return createPortal(
+      <div aria-modal="true" className="modal-backdrop" role="dialog">
+        <div className="agent-modal login-modal" style={{ maxWidth: "380px", textAlign: "center" }}>
+          <div className="agent-modal-body" style={{ padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+            <LottiePlayer
+              animationPath="/success.json"
+              className={isLevel1 ? "lottie-success-gold" : "lottie-success-green"}
+              style={{ width: 100, height: 100 }}
+            />
+            <div>
+              <h2 style={{ fontSize: "20px", color: "#111827", margin: "0 0 8px 0" }}>
+                {isLevel1 ? "已解锁 1 级代理" : "已解锁 2 级代理"}
+              </h2>
+              <p style={{ fontSize: "14px", color: "#475569", margin: 0, lineHeight: 1.6 }}>
+                已为您解锁 {isLevel1 ? "1 级" : "2 级"}代理特权，价格目录已更新。
+              </p>
+            </div>
+            <button
+              className="button button-premium-teal"
+              onClick={() => {
+                onUnlockSuccess(unlockedSuccessLevel);
+                onClose();
+              }}
+              style={{ width: "100%", marginTop: "8px", justifyContent: "center" }}
+              type="button"
+            >
+              开始查看价格
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
   }
 
   if (step === "choice") {
@@ -915,7 +1006,7 @@ export function UnlockModal({
 
           <div className="agent-modal-body" style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "24px 20px" }}>
             <button
-              className="button button-primary"
+              className="button button-premium-teal"
               onClick={() => { setStep("login"); setError(""); }}
               style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: "15px" }}
               type="button"
@@ -1003,27 +1094,30 @@ export function UnlockModal({
             <ApplyUpgradeButton style={{ flexShrink: 0, marginLeft: "auto" }} />
           </div>
           <label>
-            姓名
+            <span>姓名<span className="required-star">*</span></span>
             <input
               autoFocus
               onChange={(e) => setRegName(e.target.value)}
               placeholder="请输入您的姓名"
+              required
               value={regName}
             />
           </label>
           <label>
-            微信号
+            <span>微信号<span className="required-star">*</span></span>
             <input
               onChange={(e) => setRegWechat(e.target.value)}
               placeholder="请输入您的微信号"
+              required
               value={regWechat}
             />
           </label>
           <label>
-            代理注册激活码
+            <span>代理注册激活码<span className="required-star">*</span></span>
             <input
               onChange={(e) => setRegCode(e.target.value)}
               placeholder="请输入代理注册激活码"
+              required
               value={regCode}
             />
           </label>

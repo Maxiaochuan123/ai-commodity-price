@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Edit3, Eye, Power, Sparkles, Users, X } from "lucide-react";
@@ -32,6 +32,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState("");
   const [agentMgmtOpen, setAgentMgmtOpen] = useState(false);
   const [newAgentCount, setNewAgentCount] = useState(0);
+  const hasRefreshedRef = useRef(false);
 
   async function refreshAdmin() {
     const response = await fetch("/api/admin/me", { cache: "no-store" });
@@ -54,6 +55,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    if (hasRefreshedRef.current) return;
+    hasRefreshedRef.current = true;
     void refreshAdmin();
   }, []);
 
@@ -198,6 +201,7 @@ function LoginModal({ onClose, onLoggedIn }: { onClose: () => void; onLoggedIn: 
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError("");
 

@@ -186,9 +186,19 @@ function EditAgentModal({
   const [disabled, setDisabled] = useState(agent.disabled === true || agent.disabled === "true");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
+    if (!name.trim()) {
+      setError("姓名不能为空");
+      return;
+    }
+    if (!wechatId.trim()) {
+      setError("微信号不能为空");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -219,6 +229,29 @@ function EditAgentModal({
     }
   }
 
+  async function handleDelete() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/agents/${encodeURIComponent(agent.wechatId)}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { message?: string };
+        setError(data.message ?? "删除失败");
+        setShowDeleteConfirm(false);
+        return;
+      }
+      onSaved();
+    } catch {
+      setError("网络错误");
+      setShowDeleteConfirm(false);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return createPortal(
     <div
       aria-modal="true"
@@ -230,7 +263,6 @@ function EditAgentModal({
         <div className="agent-modal-header">
           <div>
             <h2>编辑代理</h2>
-            <p>{agent.name} ({agent.wechatId})</p>
           </div>
           <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
             <X className="icon-xs" />
@@ -239,16 +271,18 @@ function EditAgentModal({
 
         <div className="agent-modal-body login-form">
           <label>
-            姓名
+            <span>姓名<span className="required-star">*</span></span>
             <input
               onChange={(e) => setName(e.target.value)}
+              required
               value={name}
             />
           </label>
           <label>
-            微信号
+            <span>微信号<span className="required-star">*</span></span>
             <input
               onChange={(e) => setWechatId(e.target.value)}
+              required
               value={wechatId}
             />
           </label>
@@ -266,7 +300,7 @@ function EditAgentModal({
                 className={`agent-level-option ${disabled ? "is-active" : ""}`}
                 onClick={() => setDisabled(true)}
                 type="button"
-                style={disabled ? { backgroundColor: "#ef4444", color: "#ffffff" } : undefined}
+                style={disabled ? { backgroundColor: "#fef2f2", color: "#ef4444", boxShadow: "0 1px 3px rgba(239, 68, 68, 0.15)" } : undefined}
               >
                 禁用
               </button>
@@ -276,18 +310,18 @@ function EditAgentModal({
             代理等级
             <div className="agent-level-toggle">
               <button
-                className={`agent-level-option ${level === 1 ? "is-active" : ""}`}
-                onClick={() => setLevel(1)}
-                type="button"
-              >
-                1 级代理
-              </button>
-              <button
                 className={`agent-level-option ${level === 2 ? "is-active" : ""}`}
                 onClick={() => setLevel(2)}
                 type="button"
               >
                 2 级代理
+              </button>
+              <button
+                className={`agent-level-option ${level === 1 ? "is-active" : ""}`}
+                onClick={() => setLevel(1)}
+                type="button"
+              >
+                1 级代理
               </button>
             </div>
           </label>
@@ -311,15 +345,55 @@ function EditAgentModal({
           {error ? <p className="form-error">{error}</p> : null}
         </div>
 
-        <div className="agent-modal-actions">
-          <button className="button button-secondary" onClick={onClose} type="button">
-            取消
+        <div className="agent-modal-actions" style={{ justifyContent: "space-between" }}>
+          <button
+            className="button button-danger"
+            onClick={() => setShowDeleteConfirm(true)}
+            type="button"
+            disabled={loading}
+          >
+            删除代理
           </button>
-          <button className="button button-primary" disabled={loading} type="submit">
-            {loading ? "保存中..." : "保存"}
-          </button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button className="button button-secondary" onClick={onClose} type="button">
+              取消
+            </button>
+            <button className="button button-primary" disabled={loading} type="submit">
+              {loading ? "保存中..." : "保存"}
+            </button>
+          </div>
         </div>
       </form>
+
+      {showDeleteConfirm ? (
+        <div aria-modal="true" className="modal-backdrop" role="dialog" style={{ zIndex: 100 }}>
+          <div className="agent-modal confirm-modal" style={{ maxWidth: "380px" }}>
+            <div className="agent-modal-header">
+              <div>
+                <h2>确认删除代理？</h2>
+                <p>删除后将无法恢复，该代理账号也将无法登录。</p>
+              </div>
+            </div>
+            <div className="agent-modal-actions">
+              <button
+                className="button button-secondary"
+                onClick={() => setShowDeleteConfirm(false)}
+                type="button"
+              >
+                取消
+              </button>
+              <button
+                className="button button-danger"
+                onClick={() => void handleDelete()}
+                type="button"
+                disabled={loading}
+              >
+                {loading ? "删除中..." : "确定删除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>,
     document.body
   );

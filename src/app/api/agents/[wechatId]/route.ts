@@ -67,3 +67,27 @@ export async function PUT(
   const agent = await kv.hgetall(key);
   return NextResponse.json({ agent, message: "更新成功" });
 }
+
+/** DELETE — Admin: delete agent */
+export async function DELETE(
+  request: Request,
+  { params }: { params: { wechatId: string } }
+) {
+  const isAdmin = isAdminRequest();
+  if (!isAdmin) {
+    return NextResponse.json({ message: "无权限" }, { status: 403 });
+  }
+
+  const { wechatId } = params;
+  const key = `agent:${wechatId}`;
+
+  const existing = await kv.hgetall(key);
+  if (!existing || Object.keys(existing).length === 0) {
+    return NextResponse.json({ message: "代理不存在" }, { status: 404 });
+  }
+
+  await kv.del(key);
+  await kv.srem("agents:all", wechatId);
+
+  return NextResponse.json({ message: "删除成功" });
+}
