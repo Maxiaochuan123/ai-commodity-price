@@ -19,9 +19,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "微信号不能为空" }, { status: 400 });
   }
 
-  const agent = await kv.hgetall(`agent:${wechatId}`);
+  const agent = (await kv.hgetall(`agent:${wechatId}`)) as {
+    wechatId: string;
+    name: string;
+    level: number;
+    remarks: string;
+    createdAt: number;
+    disabled?: boolean | string;
+  } | null;
+
   if (!agent || Object.keys(agent).length === 0) {
     return NextResponse.json({ message: "该微信号未注册为代理" }, { status: 404 });
+  }
+
+  if (agent.disabled === true || agent.disabled === "true") {
+    return NextResponse.json({ message: "该代理账号已被禁用，请联系管理员" }, { status: 403 });
   }
 
   return NextResponse.json({ agent });

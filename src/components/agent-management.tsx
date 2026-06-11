@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit3, Search, UserPlus, X } from "lucide-react";
+import { Edit3, Maximize2, Minimize2, Search, UserPlus, X } from "lucide-react";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -16,6 +16,7 @@ export function AgentManagement({ onClose, onNotificationsClear }: AgentManageme
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [isFullScreen, setIsFullScreen] = useState(true);
 
   const fetchAgents = useCallback(async () => {
     setLoading(true);
@@ -61,17 +62,29 @@ export function AgentManagement({ onClose, onNotificationsClear }: AgentManageme
     return Date.now() - createdAt < ONE_DAY;
   };
 
+  const newAgentsCount = agents.filter((a) => isNewAgent(a.createdAt)).length;
+
   return createPortal(
     <div aria-modal="true" className="modal-backdrop" role="dialog">
-      <div className="agent-modal agent-management-modal">
+      <div className={`agent-modal agent-management-modal ${isFullScreen ? "is-fullscreen" : ""}`}>
         <div className="agent-modal-header">
           <div>
             <h2>代理管理</h2>
-            <p>管理所有注册的代理</p>
+            <p>管理所有注册的代理 (总数 {agents.length} | 新增 {newAgentsCount})</p>
           </div>
-          <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
-            <X className="icon-xs" />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button 
+              aria-label={isFullScreen ? "退出全屏" : "全屏"} 
+              className="modal-close" 
+              onClick={() => setIsFullScreen(!isFullScreen)} 
+              type="button"
+            >
+              {isFullScreen ? <Minimize2 className="icon-xs" /> : <Maximize2 className="icon-xs" />}
+            </button>
+            <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+              <X className="icon-xs" />
+            </button>
+          </div>
         </div>
 
         <div className="agent-modal-body agent-management-body">
@@ -85,9 +98,6 @@ export function AgentManagement({ onClose, onNotificationsClear }: AgentManageme
                 value={searchQuery}
               />
             </div>
-            <span className="agent-count-badge">
-              共 {agents.length} 位代理
-            </span>
           </div>
 
           {loading ? (
@@ -112,10 +122,15 @@ export function AgentManagement({ onClose, onNotificationsClear }: AgentManageme
                 >
                   <div className="agent-list-item-info">
                     <div className="agent-list-item-header">
-                      <span className="agent-list-name">{agent.name || "未设置姓名"}</span>
+                      <span className="agent-list-name" style={agent.disabled === true || agent.disabled === "true" ? { textDecoration: "line-through", opacity: 0.6 } : undefined}>{agent.name || "未设置姓名"}</span>
                       <span className={`agent-level-badge ${agent.level === 1 ? "is-primary" : "is-secondary"}`}>
                         {agent.level === 1 ? "1 级代理" : "2 级代理"}
                       </span>
+                      {agent.disabled === true || agent.disabled === "true" ? (
+                        <span className="agent-level-badge" style={{ backgroundColor: "#ef4444", color: "#ffffff", borderColor: "#ef4444" }}>
+                          已禁用
+                        </span>
+                      ) : null}
                       {isNewAgent(agent.createdAt) ? (
                         <span className="agent-new-badge">新注册</span>
                       ) : null}
@@ -168,6 +183,7 @@ function EditAgentModal({
   const [wechatId, setWechatId] = useState(agent.wechatId);
   const [level, setLevel] = useState<1 | 2>(agent.level);
   const [remarks, setRemarks] = useState(agent.remarks);
+  const [disabled, setDisabled] = useState(agent.disabled === true || agent.disabled === "true");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -182,7 +198,8 @@ function EditAgentModal({
           name: name.trim(),
           level,
           remarks: remarks.trim(),
-          newWechatId: wechatId.trim() !== agent.wechatId ? wechatId.trim() : undefined
+          newWechatId: wechatId.trim() !== agent.wechatId ? wechatId.trim() : undefined,
+          disabled
         }),
         headers: { "Content-Type": "application/json" },
         method: "PUT"
@@ -234,6 +251,26 @@ function EditAgentModal({
               onChange={(e) => setWechatId(e.target.value)}
               value={wechatId}
             />
+          </label>
+          <label>
+            账号状态
+            <div className="agent-level-toggle">
+              <button
+                className={`agent-level-option ${!disabled ? "is-active" : ""}`}
+                onClick={() => setDisabled(false)}
+                type="button"
+              >
+                启用
+              </button>
+              <button
+                className={`agent-level-option ${disabled ? "is-active" : ""}`}
+                onClick={() => setDisabled(true)}
+                type="button"
+                style={disabled ? { backgroundColor: "#ef4444", color: "#ffffff" } : undefined}
+              >
+                禁用
+              </button>
+            </div>
           </label>
           <label>
             代理等级

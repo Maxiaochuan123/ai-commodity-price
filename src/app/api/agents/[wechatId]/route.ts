@@ -28,16 +28,18 @@ export async function PUT(
     level?: 1 | 2;
     remarks?: string;
     newWechatId?: string;
+    disabled?: boolean;
   } | null;
 
   if (!body) {
     return NextResponse.json({ message: "无效的请求数据" }, { status: 400 });
   }
 
-  const updates: Record<string, string | number> = {};
+  const updates: Record<string, string | number | boolean> = {};
   if (body.name !== undefined) updates.name = body.name;
   if (body.level !== undefined && (body.level === 1 || body.level === 2)) updates.level = body.level;
   if (body.remarks !== undefined) updates.remarks = body.remarks;
+  if (body.disabled !== undefined) updates.disabled = body.disabled;
 
   // Handle wechatId change
   if (body.newWechatId && body.newWechatId !== wechatId) {
@@ -49,7 +51,7 @@ export async function PUT(
 
     // Copy data to new key
     const fullData = { ...existing, ...updates, wechatId: body.newWechatId };
-    await kv.hset(newKey, fullData as Record<string, string>);
+    await kv.hset(newKey, fullData as Record<string, string | number | boolean>);
     await kv.del(key);
     await kv.srem("agents:all", wechatId);
     await kv.sadd("agents:all", body.newWechatId);
@@ -59,7 +61,7 @@ export async function PUT(
   }
 
   if (Object.keys(updates).length > 0) {
-    await kv.hset(key, updates);
+    await kv.hset(key, updates as Record<string, string | number | boolean>);
   }
 
   const agent = await kv.hgetall(key);

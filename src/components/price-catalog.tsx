@@ -77,8 +77,33 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
     }
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("agent_unlocked_level");
-      if (stored === "primary" || stored === "secondary") {
+      const storedWechatId = localStorage.getItem("agent_wechat_id");
+      if ((stored === "primary" || stored === "secondary") && storedWechatId) {
         setAgentLevel(stored);
+
+        // Verify status with backend to log out if disabled or deleted
+        fetch("/api/agents/login", {
+          body: JSON.stringify({ wechatId: storedWechatId }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST"
+        })
+          .then(async (res) => {
+            if (!res.ok) {
+              localStorage.removeItem("agent_unlocked_level");
+              localStorage.removeItem("agent_wechat_id");
+              setAgentLevel("none");
+            } else {
+              const data = (await res.json()) as { agent: { level: number } };
+              const verifiedLevel = data.agent.level === 1 ? "primary" : "secondary";
+              if (verifiedLevel !== stored) {
+                localStorage.setItem("agent_unlocked_level", verifiedLevel);
+                setAgentLevel(verifiedLevel);
+              }
+            }
+          })
+          .catch(() => {
+            // ignore network errors to keep cache active offline
+          });
       } else {
         setAgentLevel("none");
       }
@@ -318,7 +343,7 @@ function ProductTable({
   onUpgrade: () => void;
   products: CatalogProduct[];
 }) {
-  const isUnlocked = agentLevel !== "none";
+  const isLocked = agentLevel === "none" || agentLevel === "secondary";
 
   // Display name of current unlocked agent type
   const agentHeaderLabel = 
@@ -327,8 +352,12 @@ function ProductTable({
     "2级代理价，1级代理价";
 
   return (
-    <div className={!isUnlocked ? "table-agent-lock-wrap agent-locked" : "table-agent-lock-wrap"} onClick={!isUnlocked ? onUnlock : undefined}>
+    <div 
+      className={isLocked ? "table-agent-lock-wrap agent-locked" : "table-agent-lock-wrap"} 
+      onClick={agentLevel === "none" ? onUnlock : agentLevel === "secondary" ? onUpgrade : undefined}
+    >
       <table className="price-table">
+
         <thead>
           <tr>
             <th>商品</th>

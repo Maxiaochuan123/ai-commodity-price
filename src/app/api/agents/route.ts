@@ -11,6 +11,7 @@ export type Agent = {
   level: 1 | 2;
   remarks: string;
   createdAt: number;
+  disabled?: boolean | string;
 };
 
 const ACTIVATION_CODE = "mxcsgnhdl";

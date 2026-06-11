@@ -98,6 +98,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
             type="button"
           >
             <Users className="icon-xs" />
+            <span>代理管理</span>
             {newAgentCount > 0 ? (
               <span className="notification-badge">{newAgentCount > 99 ? "99+" : newAgentCount}</span>
             ) : null}

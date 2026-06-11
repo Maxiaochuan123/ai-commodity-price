@@ -1904,8 +1904,11 @@ input {
   }
 
   .agent-search-bar {
-    flex-direction: column;
-    gap: 8px;
+    width: 100%;
+  }
+
+  .agent-search-input-wrap {
+    width: 100%;
   }
 
   .agent-count-badge {
@@ -1913,3 +1916,27 @@ input {
     text-align: center;
   }
 }
+
+/* Fullscreen mode for agent management */
+.agent-management-modal.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  z-index: 100;
+  margin: 0;
+  border: none;
+}
+
+.agent-management-modal.is-fullscreen .agent-management-body {
+  flex: 1;
+  max-height: calc(100vh - 80px);
+}
+
+.agent-management-modal.is-fullscreen .agent-list {
+  max-height: calc(100vh - 180px);
+}
+
