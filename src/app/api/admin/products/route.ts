@@ -23,10 +23,16 @@ export async function GET() {
     }
     const parsed: OverridesMap = {};
     for (const [key, value] of Object.entries(raw)) {
-      try {
-        parsed[key] = JSON.parse(value as string) as ProductOverride;
-      } catch {
-        // skip malformed entries
+      if (value) {
+        if (typeof value === "string") {
+          try {
+            parsed[key] = JSON.parse(value) as ProductOverride;
+          } catch {
+            // skip malformed entries
+          }
+        } else if (typeof value === "object") {
+          parsed[key] = value as ProductOverride;
+        }
       }
     }
     return NextResponse.json({ overrides: parsed });
@@ -52,9 +58,18 @@ export async function PUT(request: Request) {
   }
 
   const existing = await kv.hget(OVERRIDES_KEY, body.productId);
-  const current: ProductOverride = existing
-    ? (JSON.parse(existing as string) as ProductOverride)
-    : {};
+  let current: ProductOverride = {};
+  if (existing) {
+    if (typeof existing === "string") {
+      try {
+        current = JSON.parse(existing) as ProductOverride;
+      } catch {
+        // ignore malformed
+      }
+    } else if (typeof existing === "object") {
+      current = existing as ProductOverride;
+    }
+  }
 
   const updated: ProductOverride = { ...current };
   if (body.active !== undefined) updated.active = body.active;
@@ -64,3 +79,4 @@ export async function PUT(request: Request) {
 
   return NextResponse.json({ message: "更新成功", override: updated });
 }
+

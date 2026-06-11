@@ -41,14 +41,22 @@ type PriceSnapshotItem = {
   primaryAgent: number;
   secondaryAgent: number;
   active: boolean;
+  cost: number;
 };
 
-type PriceChange = {
+type ProductPriceChangeValue<T> = {
+  oldVal: T;
+  newVal: T;
+};
+
+type ProductPriceChange = {
+  productId: string;
   name: string;
-  field: string;
-  oldValue: number | string;
-  newValue: number | string;
-  type: "price" | "status";
+  status?: ProductPriceChangeValue<string>;
+  cost?: ProductPriceChangeValue<number>;
+  retail?: ProductPriceChangeValue<number>;
+  primaryAgent?: ProductPriceChangeValue<number>;
+  secondaryAgent?: ProductPriceChangeValue<number>;
 };
 
 const SNAPSHOT_KEY = "product_price_snapshot";
@@ -108,8 +116,9 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const [offlineNoteModal, setOfflineNoteModal] = useState<{ productId: string; productName: string; currentNote: string } | null>(null);
 
   // Price change detection
-  const [priceChanges, setPriceChanges] = useState<PriceChange[]>([]);
+  const [priceChanges, setPriceChanges] = useState<ProductPriceChange[]>([]);
   const [showPriceChangeModal, setShowPriceChangeModal] = useState(false);
+  const [hoveredTooltip, setHoveredTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (admin.isAdmin) {
@@ -196,7 +205,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
 
   // Price change detection via localStorage snapshot
   useEffect(() => {
-    if (admin.isAdmin) return; // Admin doesn't need price change alerts
+    if (admin.isAdmin) return;
 
     const allMerged = mergedGroups.flatMap((g) =>
       [...g.products, ...(g.subgroups ?? []).flatMap((sub) => sub.products)]
@@ -209,7 +218,8 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       retail: p.retail,
       primaryAgent: p.primaryAgent,
       secondaryAgent: p.secondaryAgent ?? p.primaryAgent,
-      active: p.active !== false
+      active: p.active !== false,
+      cost: p.cost ?? 0
     }));
 
     // Load previous snapshot
@@ -221,56 +231,67 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
         const prevSnapshot = JSON.parse(prevRaw) as PriceSnapshotItem[];
         const prevMap = new Map(prevSnapshot.map((item) => [item.id, item]));
 
-        const changes: PriceChange[] = [];
+        const changes: ProductPriceChange[] = [];
 
         for (const curr of currentSnapshot) {
           const prev = prevMap.get(curr.id);
           if (!prev) continue;
 
-          // Status change
+          let hasVisibleChange = false;
+          const changeRow: ProductPriceChange = {
+            productId: curr.id,
+            name: curr.name
+          };
+
+          // Status change (visible to all)
           if (prev.active !== curr.active) {
-            changes.push({
-              name: curr.name,
-              field: "状态",
-              oldValue: prev.active ? "上架" : "下架",
-              newValue: curr.active ? "上架" : "下架",
-              type: "status"
-            });
+            changeRow.status = {
+              oldVal: prev.active ? "上架" : "下架",
+              newVal: curr.active ? "上架" : "下架"
+            };
+            hasVisibleChange = true;
           }
 
-          // Retail price change
+          // Retail price change (visible to all)
           if (prev.retail !== curr.retail) {
-            changes.push({
-              name: curr.name,
-              field: "零售价",
-              oldValue: prev.retail,
-              newValue: curr.retail,
-              type: "price"
-            });
+            changeRow.retail = {
+              oldVal: prev.retail,
+              newVal: curr.retail
+            };
+            hasVisibleChange = true;
           }
 
-          // Agent prices (visible based on current agent level)
-          if (agentLevel === "primary" || agentLevel === "secondary") {
-            if (prev.secondaryAgent !== curr.secondaryAgent) {
-              changes.push({
-                name: curr.name,
-                field: "2级代理价",
-                oldValue: prev.secondaryAgent,
-                newValue: curr.secondaryAgent,
-                type: "price"
-              });
-            }
+          // Cost change (visible only to Admin, backward compatible check)
+          if (admin.isAdmin && prev.cost !== undefined && prev.cost !== curr.cost) {
+            changeRow.cost = {
+              oldVal: prev.cost ?? 0,
+              newVal: curr.cost
+            };
+            hasVisibleChange = true;
           }
-          if (agentLevel === "primary") {
-            if (prev.primaryAgent !== curr.primaryAgent) {
-              changes.push({
-                name: curr.name,
-                field: "1级代理价",
-                oldValue: prev.primaryAgent,
-                newValue: curr.primaryAgent,
-                type: "price"
-              });
-            }
+
+          // Secondary Agent change (visible to Admin, Primary, and Secondary)
+          if ((admin.isAdmin || agentLevel === "primary" || agentLevel === "secondary") &&
+              prev.secondaryAgent !== curr.secondaryAgent) {
+            changeRow.secondaryAgent = {
+              oldVal: prev.secondaryAgent,
+              newVal: curr.secondaryAgent
+            };
+            hasVisibleChange = true;
+          }
+
+          // Primary Agent change (visible to Admin and Primary)
+          if ((admin.isAdmin || agentLevel === "primary") &&
+              prev.primaryAgent !== curr.primaryAgent) {
+            changeRow.primaryAgent = {
+              oldVal: prev.primaryAgent,
+              newVal: curr.primaryAgent
+            };
+            hasVisibleChange = true;
+          }
+
+          if (hasVisibleChange) {
+            changes.push(changeRow);
           }
         }
 
@@ -518,6 +539,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                   onUpgrade={handleUpgrade}
                   onToggleActive={handleToggleActive}
                   products={group.products}
+                  onHoverTooltip={setHoveredTooltip}
                 />
               </div>
 
@@ -528,6 +550,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                 onUpgrade={handleUpgrade}
                 onToggleActive={handleToggleActive}
                 products={group.products}
+                onHoverTooltip={setHoveredTooltip}
               />
 
               {group.subgroups?.map((subgroup) => (
@@ -545,6 +568,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                       onUpgrade={handleUpgrade}
                       onToggleActive={handleToggleActive}
                       products={subgroup.products}
+                      onHoverTooltip={setHoveredTooltip}
                     />
                   </div>
 
@@ -555,6 +579,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                     onUpgrade={handleUpgrade}
                     onToggleActive={handleToggleActive}
                     products={subgroup.products}
+                    onHoverTooltip={setHoveredTooltip}
                   />
                 </div>
               ))}
@@ -613,7 +638,9 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       ) : null}
       {showPriceChangeModal && priceChanges.length > 0 ? (
         <PriceChangeModal
+          agentLevel={agentLevel}
           changes={priceChanges}
+          isAdmin={admin.isAdmin}
           onAck={handleAckPriceChanges}
         />
       ) : null}
@@ -632,6 +659,41 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
           </linearGradient>
         </defs>
       </svg>
+      {hoveredTooltip && createPortal(
+        <div style={{
+          position: "fixed",
+          left: `${hoveredTooltip.x}px`,
+          top: `${hoveredTooltip.y}px`,
+          transform: "translate(-50%, -100%)",
+          background: "#1e293b",
+          color: "#fff",
+          padding: "6px 10px",
+          borderRadius: "6px",
+          fontSize: "12px",
+          fontWeight: 500,
+          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)",
+          pointerEvents: "none",
+          zIndex: 99999,
+          maxWidth: "280px",
+          lineHeight: 1.4,
+          textAlign: "center",
+          whiteSpace: "normal"
+        }}>
+          {hoveredTooltip.text}
+          <div style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "0",
+            transform: "translate(-50%, 100%)",
+            width: "0",
+            height: "0",
+            borderLeft: "5px solid transparent",
+            borderRight: "5px solid transparent",
+            borderTop: "5px solid #1e293b"
+          }} />
+        </div>,
+        document.body
+      )}
     </>
   );
 }
@@ -642,7 +704,8 @@ function ProductTable({
   onUnlock,
   onUpgrade,
   onToggleActive,
-  products
+  products,
+  onHoverTooltip
 }: {
   isAdmin: boolean;
   agentLevel: "none" | "primary" | "secondary";
@@ -650,6 +713,7 @@ function ProductTable({
   onUpgrade: () => void;
   onToggleActive: (productId: string, productName: string, currentActive: boolean, currentNote: string) => void;
   products: CatalogProduct[];
+  onHoverTooltip: (tooltip: { text: string; x: number; y: number } | null) => void;
 }) {
   const isLocked = agentLevel === "none" || agentLevel === "secondary";
 
@@ -736,13 +800,20 @@ function ProductTable({
                 {isAdmin ? (
                   <td className="status-cell">
                     <button
-                      className={product.active !== false ? "admin-toggle is-on" : "admin-toggle is-off"}
+                      className={product.active !== false ? "admin-switch is-on" : "admin-switch is-off"}
                       onClick={() => onToggleActive(product.id ?? "", product.name, product.active !== false, product.offlineNote ?? "")}
-                      title={product.active !== false ? "点击下架" : "点击上架"}
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        onHoverTooltip({
+                          text: product.active !== false ? "点击下架" : "点击上架",
+                          x: rect.left + rect.width / 2,
+                          y: rect.top - 8
+                        });
+                      }}
+                      onMouseLeave={() => onHoverTooltip(null)}
                       type="button"
                     >
-                      {product.active !== false ? <ToggleRight className="icon-sm" /> : <ToggleLeft className="icon-sm" />}
-                      <span>{product.active !== false ? "上架" : "下架"}</span>
+                      <span className="admin-switch-thumb" />
                     </button>
                   </td>
                 ) : null}
@@ -839,7 +910,8 @@ function ProductCards({
   onUnlock,
   onUpgrade,
   onToggleActive,
-  products
+  products,
+  onHoverTooltip
 }: {
   isAdmin: boolean;
   agentLevel: "none" | "primary" | "secondary";
@@ -847,6 +919,7 @@ function ProductCards({
   onUpgrade: () => void;
   onToggleActive: (productId: string, productName: string, currentActive: boolean, currentNote: string) => void;
   products: CatalogProduct[];
+  onHoverTooltip: (tooltip: { text: string; x: number; y: number } | null) => void;
 }) {
   const isUnlocked = agentLevel !== "none";
 
@@ -885,13 +958,20 @@ function ProductCards({
             {isAdmin ? (
               <div className="card-status">
                 <button
-                  className={product.active !== false ? "admin-toggle is-on" : "admin-toggle is-off"}
+                  className={product.active !== false ? "admin-switch is-on" : "admin-switch is-off"}
                   onClick={() => onToggleActive(product.id ?? "", product.name, product.active !== false, product.offlineNote ?? "")}
-                  title={product.active !== false ? "点击下架" : "点击上架"}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onHoverTooltip({
+                      text: product.active !== false ? "点击下架" : "点击上架",
+                      x: rect.left + rect.width / 2,
+                      y: rect.top - 8
+                    });
+                  }}
+                  onMouseLeave={() => onHoverTooltip(null)}
                   type="button"
                 >
-                  {product.active !== false ? <ToggleRight className="icon-sm" /> : <ToggleLeft className="icon-sm" />}
-                  <span>{product.active !== false ? "上架" : "下架"}</span>
+                  <span className="admin-switch-thumb" />
                 </button>
               </div>
             ) : null}
@@ -1540,39 +1620,43 @@ function OfflineNoteModal({
 
   return createPortal(
     <div aria-modal="true" className="modal-backdrop" role="dialog">
-      <form className="agent-modal login-modal" onSubmit={(e) => void handleSubmit(e)} style={{ maxWidth: "440px" }}>
-        <div className="agent-modal-header">
+      <form className="agent-modal login-modal" onSubmit={(e) => void handleSubmit(e)} style={{ maxWidth: "420px" }}>
+        <div className="agent-modal-header" style={{ padding: "16px 20px" }}>
           <div>
-            <h2>下架商品</h2>
-            <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>{productName}</p>
+            <h2 style={{ fontSize: "18px", fontWeight: 700 }}>确认下架商品？</h2>
+            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>{productName}</p>
           </div>
           <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
             <X className="icon-xs" />
           </button>
         </div>
 
-        <div className="agent-modal-body login-form">
-          <label>
-            <span>下架原因<span style={{ color: "#94a3b8", fontSize: "12px", marginLeft: "6px" }}>(选填)</span></span>
-            <textarea
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="如：货源不稳定，暂停销售"
-              rows={3}
-              style={{ resize: "vertical", minHeight: "72px", fontFamily: "inherit", fontSize: "14px", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", width: "100%", boxSizing: "border-box" }}
-              value={note}
-            />
-          </label>
-          <p style={{ margin: "0", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-            填写后，下架原因将以红色滚动文字显示在商品名上方。
-          </p>
+        <div className="agent-modal-body" style={{ padding: "16px 20px" }}>
+          <input
+            autoFocus
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="说明下架原因（选填）"
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              border: "1px solid #cbd5e1",
+              borderRadius: "8px",
+              fontSize: "14px",
+              fontFamily: "inherit",
+              outline: "none",
+              boxSizing: "border-box"
+            }}
+            type="text"
+            value={note}
+          />
         </div>
 
-        <div className="agent-modal-actions">
+        <div className="agent-modal-actions" style={{ padding: "12px 20px 16px" }}>
           <button className="button button-secondary" onClick={onClose} type="button">
             取消
           </button>
           <button className="button button-danger" disabled={submitting} type="submit">
-            {submitting ? "下架中..." : "确认下架"}
+            {submitting ? "处理中..." : "确认下架"}
           </button>
         </div>
       </form>
@@ -1583,20 +1667,42 @@ function OfflineNoteModal({
 
 function PriceChangeModal({
   changes,
-  onAck
+  onAck,
+  isAdmin,
+  agentLevel
 }: {
-  changes: PriceChange[];
+  changes: ProductPriceChange[];
   onAck: () => void;
+  isAdmin: boolean;
+  agentLevel: "none" | "primary" | "secondary";
 }) {
+  const showCost = isAdmin;
+  const showRetail = true;
+  const showSecondary = isAdmin || agentLevel === "primary" || agentLevel === "secondary";
+  const showPrimary = isAdmin || agentLevel === "primary";
+  const [hoveredTooltip, setHoveredTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+
   return createPortal(
     <div aria-modal="true" className="modal-backdrop" role="dialog" style={{ zIndex: 110 }}>
-      <div className="agent-modal price-change-modal" style={{ maxWidth: "520px" }}>
-        <div className="agent-modal-header">
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <AlertTriangle className="icon-sm" style={{ color: "#f59e0b", flexShrink: 0 }} />
+      <div className="agent-modal price-change-modal">
+        <div className="agent-modal-header" style={{ padding: "18px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "42px",
+              height: "42px",
+              borderRadius: "50%",
+              background: "#fffbeb",
+              border: "1px solid #fef3c7",
+              flexShrink: 0
+            }}>
+              <AlertTriangle style={{ color: "#d97706", width: "20px", height: "20px" }} />
+            </div>
             <div>
-              <h2>价格/状态变动通知</h2>
-              <p>以下商品自您上次访问以来发生了变动</p>
+              <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#1e293b", margin: 0 }}>价格/状态变动通知</h2>
+              <p style={{ fontSize: "13px", color: "#64748b", margin: "4px 0 0" }}>以下商品自您上次访问以来发生了变动</p>
             </div>
           </div>
           <button aria-label="关闭" className="modal-close" onClick={onAck} type="button">
@@ -1608,55 +1714,163 @@ function PriceChangeModal({
           <table className="price-change-table">
             <thead>
               <tr>
-                <th>商品</th>
-                <th>变更项</th>
-                <th>变更前</th>
-                <th>变更后</th>
+                <th style={{ paddingLeft: "24px" }}>商品</th>
+                <th>状态</th>
+                {showCost && <th>成本</th>}
+                {showRetail && <th style={(!showSecondary && !showPrimary) ? { paddingRight: "24px" } : undefined}>零售</th>}
+                {showSecondary && <th style={(!showPrimary) ? { paddingRight: "24px" } : undefined}>2级代理</th>}
+                {showPrimary && <th style={{ paddingRight: "24px" }}>1级代理</th>}
               </tr>
             </thead>
             <tbody>
               {changes.map((change, idx) => (
                 <tr key={idx}>
-                  <td className="change-product-name">{change.name}</td>
+                  <td
+                    className="change-product-name"
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredTooltip({
+                        text: change.name,
+                        x: rect.left + rect.width / 2,
+                        y: rect.top - 8
+                      });
+                    }}
+                    onMouseLeave={() => setHoveredTooltip(null)}
+                    style={{ paddingLeft: "24px", cursor: "pointer" }}
+                  >
+                    {change.name}
+                  </td>
                   <td>
-                    <span className="change-field-badge">{change.field}</span>
-                  </td>
-                  <td className="change-old-value">
-                    {change.type === "price" ? (
-                      <span>¥{formatPrice(change.oldValue as number)}</span>
-                    ) : (
-                      <span>{change.oldValue as string}</span>
-                    )}
-                  </td>
-                  <td className="change-new-value">
-                    {change.type === "price" ? (
-                      <span className="change-price-diff">
-                        ¥{formatPrice(change.newValue as number)}
-                        {(change.newValue as number) > (change.oldValue as number) ? (
-                          <ArrowUp className="icon-xs" style={{ color: "#ef4444" }} />
-                        ) : (
-                          <ArrowDown className="icon-xs" style={{ color: "#22c55e" }} />
-                        )}
+                    {change.status ? (
+                      <span>
+                        <span style={{ color: "#475569", textDecoration: "line-through", fontSize: "11px", marginRight: "4px" }}>
+                          {change.status.oldVal}
+                        </span>
+                        <span style={{ color: "#94a3b8", marginRight: "4px" }}>➔</span>
+                        <span className={change.status.newVal === "下架" ? "change-status-offline" : "change-status-online"}>
+                          {change.status.newVal}
+                        </span>
                       </span>
                     ) : (
-                      <span className={change.newValue === "下架" ? "change-status-offline" : "change-status-online"}>
-                        {change.newValue as string}
-                      </span>
+                      <span style={{ color: "#94a3b8" }}>-</span>
                     )}
                   </td>
+                  {showCost && (
+                    <td>
+                      {change.cost ? (
+                        <span>
+                          <span style={{ color: "#1e293b", marginRight: "4px" }}>
+                            {change.cost.oldVal}
+                          </span>
+                          <span style={{ color: "#94a3b8", marginRight: "4px" }}>➔</span>
+                          <span style={{ color: change.cost.newVal > change.cost.oldVal ? "#dc2626" : "#22c55e", fontWeight: 700 }}>
+                            {change.cost.newVal}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>-</span>
+                      )}
+                    </td>
+                  )}
+                  {showRetail && (
+                    <td style={(!showSecondary && !showPrimary) ? { paddingRight: "24px" } : undefined}>
+                      {change.retail ? (
+                        <span>
+                          <span style={{ color: "#1e293b", marginRight: "4px" }}>
+                            {change.retail.oldVal}
+                          </span>
+                          <span style={{ color: "#94a3b8", marginRight: "4px" }}>➔</span>
+                          <span style={{ color: change.retail.newVal > change.retail.oldVal ? "#dc2626" : "#22c55e", fontWeight: 700 }}>
+                            {change.retail.newVal}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>-</span>
+                      )}
+                    </td>
+                  )}
+                  {showSecondary && (
+                    <td style={(!showPrimary) ? { paddingRight: "24px" } : undefined}>
+                      {change.secondaryAgent ? (
+                        <span>
+                          <span style={{ color: "#1e293b", marginRight: "4px" }}>
+                            {change.secondaryAgent.oldVal}
+                          </span>
+                          <span style={{ color: "#94a3b8", marginRight: "4px" }}>➔</span>
+                          <span style={{ color: change.secondaryAgent.newVal > change.secondaryAgent.oldVal ? "#dc2626" : "#22c55e", fontWeight: 700 }}>
+                            {change.secondaryAgent.newVal}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>-</span>
+                      )}
+                    </td>
+                  )}
+                  {showPrimary && (
+                    <td style={{ paddingRight: "24px" }}>
+                      {change.primaryAgent ? (
+                        <span>
+                          <span style={{ color: "#1e293b", marginRight: "4px" }}>
+                            {change.primaryAgent.oldVal}
+                          </span>
+                          <span style={{ color: "#94a3b8", marginRight: "4px" }}>➔</span>
+                          <span style={{ color: change.primaryAgent.newVal > change.primaryAgent.oldVal ? "#dc2626" : "#22c55e", fontWeight: 700 }}>
+                            {change.primaryAgent.newVal}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: "#94a3b8" }}>-</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        <div className="agent-modal-actions">
+        <div className="agent-modal-actions" style={{ padding: "18px 24px" }}>
           <button className="button button-primary" onClick={onAck} style={{ width: "100%", justifyContent: "center" }} type="button">
             <MessageSquare className="icon-xs" />
             我知道了
           </button>
         </div>
       </div>
+      {hoveredTooltip && createPortal(
+        <div style={{
+          position: "fixed",
+          left: `${hoveredTooltip.x}px`,
+          top: `${hoveredTooltip.y}px`,
+          transform: "translate(-50%, -100%)",
+          background: "#1e293b",
+          color: "#fff",
+          padding: "6px 10px",
+          borderRadius: "6px",
+          fontSize: "12px",
+          fontWeight: 500,
+          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)",
+          pointerEvents: "none",
+          zIndex: 99999,
+          maxWidth: "280px",
+          lineHeight: 1.4,
+          textAlign: "center",
+          whiteSpace: "normal"
+        }}>
+          {hoveredTooltip.text}
+          <div style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "0",
+            transform: "translate(-50%, 100%)",
+            width: "0",
+            height: "0",
+            borderLeft: "5px solid transparent",
+            borderRight: "5px solid transparent",
+            borderTop: "5px solid #1e293b"
+          }} />
+        </div>,
+        document.body
+      )}
     </div>,
     document.body
   );

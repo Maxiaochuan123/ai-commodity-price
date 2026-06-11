@@ -2048,44 +2048,59 @@ input {
   fill: url(#gold-gradient-flow) !important;
 }
 
-/* ===== Admin Toggle Button ===== */
-.admin-toggle {
+/* ===== Admin Toggle Switch ===== */
+.admin-switch {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: none;
-  background: transparent;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
+  width: 48px;
+  height: 26px;
+  border-radius: 9999px;
+  background-color: #cbd5e1;
+  padding: 0;
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: all 160ms ease;
-  white-space: nowrap;
+  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-.admin-toggle.is-on {
-  color: #0f766e;
+.admin-switch.is-on {
+  background-color: #0f766e;
 }
 
-.admin-toggle.is-on:hover {
-  background: #fef2f2;
-  color: #dc2626;
+.admin-switch.is-off {
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
 }
 
-.admin-toggle.is-off {
-  color: #dc2626;
+.admin-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.admin-toggle.is-off:hover {
-  background: #f0fdfa;
-  color: #0f766e;
+.admin-switch.is-on .admin-switch-thumb {
+  transform: translateX(22px);
 }
 
-.admin-toggle svg {
-  width: 18px;
-  height: 18px;
+/* Hover effects */
+.admin-switch:hover {
+  transform: scale(1.05);
+}
+
+.admin-switch.is-on:hover {
+  background-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.18);
+}
+
+.admin-switch.is-off:hover {
+  background-color: #cbd5e1;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.15);
 }
 
 /* ===== Offline Overlay with Marquee ===== */
@@ -2142,6 +2157,7 @@ input {
 
 /* ===== Price Change Notification Modal ===== */
 .price-change-modal {
+  width: min(100%, 680px);
   border-top: 3px solid #f59e0b;
 }
 
@@ -2160,7 +2176,7 @@ input {
 .price-change-table th {
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
-  padding: 10px 14px;
+  padding: 12px 14px;
   text-align: left;
   font-weight: 700;
   font-size: 12px;
@@ -2169,7 +2185,7 @@ input {
 }
 
 .price-change-table td {
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
 }
@@ -2179,26 +2195,26 @@ input {
 }
 
 .price-change-table tbody tr:hover {
-  background: #fefce8;
+  background: #f8fafc;
 }
 
 .change-product-name {
-  max-width: 180px;
+  max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
   color: #111827;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .change-field-badge {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 11px;
   font-weight: 700;
-  background: #f0f4f8;
+  background: #f1f5f9;
   color: #475569;
   white-space: nowrap;
 }
@@ -2206,13 +2222,13 @@ input {
 .change-old-value {
   color: #94a3b8;
   text-decoration: line-through;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .change-new-value {
   font-weight: 700;
   color: #111827;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .change-price-diff {
@@ -2240,6 +2256,7 @@ input {
 
 .button-danger:hover {
   background: #b91c1c;
+  color: #fff;
 }
 
 .button-danger:disabled {

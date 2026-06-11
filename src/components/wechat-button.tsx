@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type CopyState = "idle" | "copied" | "failed";
 
@@ -91,6 +92,7 @@ export function WechatLink({ wechat }: { wechat: string }) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const launchTimerRef = useRef<number | null>(null);
   const resetTimerRef = useRef<number | null>(null);
+  const [hoveredTooltip, setHoveredTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -132,7 +134,15 @@ export function WechatLink({ wechat }: { wechat: string }) {
           cursor: "pointer",
           transition: "color 150ms ease"
         }}
-        title="点击复制微信并打开微信"
+        onMouseEnter={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setHoveredTooltip({
+            text: "点击复制微信并打开微信",
+            x: rect.left + rect.width / 2,
+            y: rect.top - 8
+          });
+        }}
+        onMouseLeave={() => setHoveredTooltip(null)}
       >
         <svg 
           aria-hidden="true" 
@@ -154,6 +164,41 @@ export function WechatLink({ wechat }: { wechat: string }) {
           {copyState === "copied" ? "已复制！" : copyState === "failed" ? "复制失败" : wechat}
         </span>
       </span>
+      {hoveredTooltip && createPortal(
+        <div style={{
+          position: "fixed",
+          left: `${hoveredTooltip.x}px`,
+          top: `${hoveredTooltip.y}px`,
+          transform: "translate(-50%, -100%)",
+          background: "#1e293b",
+          color: "#fff",
+          padding: "6px 10px",
+          borderRadius: "6px",
+          fontSize: "12px",
+          fontWeight: 500,
+          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)",
+          pointerEvents: "none",
+          zIndex: 99999,
+          maxWidth: "280px",
+          lineHeight: 1.4,
+          textAlign: "center",
+          whiteSpace: "normal"
+        }}>
+          {hoveredTooltip.text}
+          <div style={{
+            position: "absolute",
+            left: "50%",
+            bottom: "0",
+            transform: "translate(-50%, 100%)",
+            width: "0",
+            height: "0",
+            borderLeft: "5px solid transparent",
+            borderRight: "5px solid transparent",
+            borderTop: "5px solid #1e293b"
+          }} />
+        </div>,
+        document.body
+      )}
     </span>
   );
 }

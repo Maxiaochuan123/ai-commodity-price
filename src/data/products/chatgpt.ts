@@ -12,19 +12,19 @@ export const chatgptGroup: ProductGroup = {
   products: [
     {
       name: "GptPlus 手机号接码【实体卡 长效30天左右】【无惧二次验证】",
-      cost: 6.7,
-      retail: 18,
-      primaryAgent: 10,
-      secondaryAgent: 13,
+      cost: 3.1,
+      retail: 21,
+      primaryAgent: 11,
+      secondaryAgent: 11,
       docUrl: "https://www.yuque.com/u8042174/kb/cl1zwst44tqd09er?singleDoc#",
       channel: chatgptCodexPhoneCode2Channel
     },
     {
       name: "GptPlus 1个月直充【土耳其渠道】【无其他质保】",
-      cost: 88,
-      retail: 118,
-      primaryAgent: 98,
-      secondaryAgent: 108,
+      cost: 81,
+      retail: 111,
+      primaryAgent: 91,
+      secondaryAgent: 101,
       docUrl: "https://www.yuque.com/u8042174/kb/cqmvx33vg7rct7d7?singleDoc#",
       channel: lemonWatermelonChannel
     },
