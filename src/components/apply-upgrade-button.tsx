@@ -68,7 +68,7 @@ export function ApplyUpgradeButton({ className, style }: { className?: string; s
                 </div>
                 <div className="agent-modal-body" style={{ padding: "20px 24px" }}>
                   <p style={{ margin: 0, fontSize: "15px", color: "#334155", lineHeight: 1.6, textAlign: "center" }}>
-                    请先注册成为 2 级代理 才可升级
+                    需要先注册成为 2 级代理 才可升级
                   </p>
                 </div>
                 <div className="agent-modal-actions" style={{ justifyContent: "center" }}>

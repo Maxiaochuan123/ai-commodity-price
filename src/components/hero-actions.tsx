@@ -69,7 +69,7 @@ export function BecomeAgentModal({ onClose }: { onClose: () => void }) {
               <strong>小单量：</strong>注册成为代理即可享受 2 级别 代理价格
             </p>
             <div style={{ margin: 0, fontSize: "14px", lineHeight: 1.6, color: "#1e293b", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", width: "100%" }}>
-              <span><strong>大单量：</strong>2 级代理 升级 1 级代理价更劲爆！</span>
+              <span><strong>大单量：</strong>2 级代理 升级 1 级代理价 更劲爆！</span>
               <ApplyUpgradeButton style={{ flexShrink: 0, marginLeft: 0 }} />
             </div>
           </div>

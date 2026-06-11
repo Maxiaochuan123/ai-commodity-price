@@ -324,7 +324,7 @@ function ProductTable({
   const agentHeaderLabel = 
     agentLevel === "primary" ? "1级代理价" :
     agentLevel === "secondary" ? "2级代理价" :
-    "代理价";
+    "2级代理价，1级代理价";
 
   return (
     <div className={!isUnlocked ? "table-agent-lock-wrap agent-locked" : "table-agent-lock-wrap"} onClick={!isUnlocked ? onUnlock : undefined}>
@@ -345,23 +345,37 @@ function ProductTable({
                 <th className="price-cell profit-price">2级代理后利润</th>
               </>
             ) : (
-              <th className="price-cell agent-price">
-                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  {agentHeaderLabel}
-                  {!isUnlocked ? <Lock className="icon-xs" /> : <Unlock className="icon-xs" />}
-                </span>
-              </th>
+              <>
+                {/* 2级代理价列 - 始终展示 */}
+                <th className="price-cell agent-price">
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                    2级代理价
+                    {agentLevel === "none" ? (
+                      <Lock className="icon-xs" onClick={(e) => { e.stopPropagation(); onUnlock(); }} style={{ cursor: "pointer" }} />
+                    ) : (
+                      <Unlock className="icon-xs" />
+                    )}
+                  </span>
+                </th>
+                {/* 1级代理价列 - 仅在已解锁任意代理后展示 */}
+                {agentLevel !== "none" ? (
+                  <th className="price-cell agent-price">
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      1级代理价
+                      {agentLevel === "secondary" ? (
+                        <Lock className="icon-xs" onClick={(e) => { e.stopPropagation(); onUpgrade(); }} style={{ cursor: "pointer" }} />
+                      ) : (
+                        <Unlock className="icon-xs" />
+                      )}
+                    </span>
+                  </th>
+                ) : null}
+              </>
             )}
           </tr>
         </thead>
         <tbody>
           {products.map((product) => {
-            // Determine active price to display for agent column
-            const agentPrice = 
-              agentLevel === "secondary" 
-                ? (product.secondaryAgent ?? product.primaryAgent) 
-                : product.primaryAgent;
-
             const primaryProfit = product.primaryAgent - (product.cost ?? 0);
             const secondaryPrice = product.secondaryAgent ?? product.primaryAgent;
             const secondaryProfit = secondaryPrice - (product.cost ?? 0);
@@ -413,11 +427,49 @@ function ProductTable({
                     </td>
                   </>
                 ) : (
-                  <td
-                    className={!isUnlocked ? "price-cell agent-price agent-price-locked" : "price-cell agent-price"}
-                  >
-                    ¥{formatPrice(agentPrice)}
-                  </td>
+                  <>
+                    {/* 2级代理价单元格 */}
+                    {agentLevel === "none" ? (
+                      <td
+                        className="price-cell agent-price agent-price-locked"
+                        onClick={onUnlock}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <div style={{ position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "36px" }}>
+                          <span style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(secondaryPrice)}</span>
+                          <div style={{ position: "absolute", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <Lock className="icon-xs" style={{ color: "#64748b" }} />
+                          </div>
+                        </div>
+                      </td>
+                    ) : (
+                      <td className="price-cell agent-price">
+                        ¥{formatPrice(secondaryPrice)}
+                      </td>
+                    )}
+
+                    {/* 1级代理价单元格 */}
+                    {agentLevel !== "none" ? (
+                      agentLevel === "secondary" ? (
+                        <td
+                          className="price-cell agent-price agent-price-locked"
+                          onClick={onUpgrade}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <div style={{ position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "36px" }}>
+                            <span style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(product.primaryAgent)}</span>
+                            <div style={{ position: "absolute", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <Lock className="icon-xs" style={{ color: "#64748b" }} />
+                            </div>
+                          </div>
+                        </td>
+                      ) : (
+                        <td className="price-cell agent-price">
+                          ¥{formatPrice(product.primaryAgent)}
+                        </td>
+                      )
+                    ) : null}
+                  </>
                 )}
               </tr>
             );
@@ -447,7 +499,7 @@ function ProductCards({
   const agentLabel = 
     agentLevel === "primary" ? "1级代理价" :
     agentLevel === "secondary" ? "2级代理价" :
-    "代理价";
+    "2级代理价，1级代理价";
 
   return (
     <div className="mobile-cards">
@@ -487,9 +539,9 @@ function ProductCards({
               ) : (
                 <>
                   <PriceBlock label="零售" value={product.retail} />
-                  {isUnlocked ? (
-                    <PriceBlock highlight label={agentLabel} value={agentPrice} />
-                  ) : (
+                  
+                  {/* 2级代理价 */}
+                  {agentLevel === "none" ? (
                     <div
                       className="price-block is-agent"
                       onClick={onUnlock}
@@ -503,8 +555,8 @@ function ProductCards({
                         border: "1px solid rgba(255, 255, 255, 0.1)"
                       }}
                     >
-                      <div className="price-label">{agentLabel}</div>
-                      <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(agentPrice)}</div>
+                      <div className="price-label">2级代理价</div>
+                      <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(secondaryPrice)}</div>
                       <div style={{
                         position: "absolute",
                         top: 0,
@@ -531,6 +583,57 @@ function ProductCards({
                         </div>
                       </div>
                     </div>
+                  ) : (
+                    <PriceBlock highlight label="2级代理价" value={secondaryPrice} />
+                  )}
+
+                  {/* 1级代理价 (仅在解锁2级/1级代理后展示) */}
+                  {agentLevel !== "none" && (
+                    agentLevel === "secondary" ? (
+                      <div
+                        className="price-block is-agent"
+                        onClick={onUpgrade}
+                        style={{
+                          cursor: "pointer",
+                          position: "relative",
+                          overflow: "hidden",
+                          backgroundColor: "rgba(255, 255, 255, 0.05)",
+                          backdropFilter: "blur(6px)",
+                          WebkitBackdropFilter: "blur(6px)",
+                          border: "1px solid rgba(255, 255, 255, 0.1)"
+                        }}
+                      >
+                        <div className="price-label">1级代理价</div>
+                        <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(product.primaryAgent)}</div>
+                        <div style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(0, 0, 0, 0.15)",
+                          zIndex: 2
+                        }}>
+                          <div style={{
+                            background: "rgba(0, 0, 0, 0.65)",
+                            borderRadius: "50%",
+                            padding: "6px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                            border: "1px solid rgba(255, 255, 255, 0.2)"
+                          }}>
+                            <Lock className="icon-xs" style={{ color: "#fff" }} />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <PriceBlock highlight label="1级代理价" value={product.primaryAgent} />
+                    )
                   )}
                 </>
               )}
@@ -865,7 +968,7 @@ export function UnlockModal({
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <ShieldCheck className="icon-sm" style={{ flexShrink: 0 }} />
               <span style={{ fontSize: "12.5px", color: "#0f766e", fontWeight: 500, whiteSpace: "nowrap" }}>
-                注册即享 <strong>2 级代理价</strong>，<strong>1 级代理价</strong>更劲爆！
+                注册即享 <strong>2 级代理价</strong>，<strong>1 级代理价</strong> 更劲爆！
               </span>
             </div>
             <ApplyUpgradeButton style={{ flexShrink: 0, marginLeft: "auto" }} />
