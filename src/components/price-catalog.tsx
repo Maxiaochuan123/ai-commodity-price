@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Coins, Copy, ExternalLink, Lock, ShieldCheck, Unlock, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Check, Coins, Copy, ExternalLink, Lock, MessageSquare, ShieldCheck, ToggleLeft, ToggleRight, Unlock, X } from "lucide-react";
 import type { FormEvent, MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -26,6 +26,33 @@ type CatalogGroup = Omit<ProductGroup, "products" | "subgroups"> & {
     products: CatalogProduct[];
   }[];
 };
+
+type ProductOverride = {
+  active?: boolean;
+  offlineNote?: string;
+};
+
+type OverridesMap = Record<string, ProductOverride>;
+
+type PriceSnapshotItem = {
+  id: string;
+  name: string;
+  retail: number;
+  primaryAgent: number;
+  secondaryAgent: number;
+  active: boolean;
+};
+
+type PriceChange = {
+  name: string;
+  field: string;
+  oldValue: number | string;
+  newValue: number | string;
+  type: "price" | "status";
+};
+
+const SNAPSHOT_KEY = "product_price_snapshot";
+const SNAPSHOT_ACK_KEY = "product_price_snapshot_ack";
 
 function formatPrice(price: number) {
   return formatter.format(price);
@@ -73,6 +100,17 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const [levelNotification, setLevelNotification] = useState<"primary" | "secondary" | null>(null);
   const hasFetchedRef = useRef(false);
 
+  // Product overrides from KV
+  const [overrides, setOverrides] = useState<OverridesMap>({});
+  const overridesFetchedRef = useRef(false);
+
+  // Admin offline note modal
+  const [offlineNoteModal, setOfflineNoteModal] = useState<{ productId: string; productName: string; currentNote: string } | null>(null);
+
+  // Price change detection
+  const [priceChanges, setPriceChanges] = useState<PriceChange[]>([]);
+  const [showPriceChangeModal, setShowPriceChangeModal] = useState(false);
+
   useEffect(() => {
     if (admin.isAdmin) {
       setAgentLevel("primary");
@@ -117,6 +155,202 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
     }
   }, [admin.isAdmin]);
 
+  // Fetch product overrides from KV
+  useEffect(() => {
+    if (overridesFetchedRef.current) return;
+    overridesFetchedRef.current = true;
+    fetch("/api/admin/products", { cache: "no-store" })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = (await res.json()) as { overrides: OverridesMap };
+          setOverrides(data.overrides);
+        }
+      })
+      .catch(() => {
+        // ignore
+      });
+  }, []);
+
+  // Merge groups with KV overrides
+  const mergedGroups = useMemo<CatalogGroup[]>(() => {
+    const applyOverrides = (products: CatalogProduct[]): CatalogProduct[] =>
+      products.map((p) => {
+        const ov = p.id ? overrides[p.id] : undefined;
+        if (!ov) return p;
+        return {
+          ...p,
+          active: ov.active ?? p.active,
+          offlineNote: ov.offlineNote ?? p.offlineNote
+        };
+      });
+
+    return groups.map((g) => ({
+      ...g,
+      products: applyOverrides(g.products),
+      subgroups: g.subgroups?.map((sub) => ({
+        ...sub,
+        products: applyOverrides(sub.products)
+      }))
+    }));
+  }, [groups, overrides]);
+
+  // Price change detection via localStorage snapshot
+  useEffect(() => {
+    if (admin.isAdmin) return; // Admin doesn't need price change alerts
+
+    const allMerged = mergedGroups.flatMap((g) =>
+      [...g.products, ...(g.subgroups ?? []).flatMap((sub) => sub.products)]
+    );
+
+    // Build current snapshot
+    const currentSnapshot: PriceSnapshotItem[] = allMerged.map((p) => ({
+      id: p.id ?? "",
+      name: p.name,
+      retail: p.retail,
+      primaryAgent: p.primaryAgent,
+      secondaryAgent: p.secondaryAgent ?? p.primaryAgent,
+      active: p.active !== false
+    }));
+
+    // Load previous snapshot
+    const prevRaw = localStorage.getItem(SNAPSHOT_KEY);
+    const ackRaw = localStorage.getItem(SNAPSHOT_ACK_KEY);
+
+    if (prevRaw) {
+      try {
+        const prevSnapshot = JSON.parse(prevRaw) as PriceSnapshotItem[];
+        const prevMap = new Map(prevSnapshot.map((item) => [item.id, item]));
+
+        const changes: PriceChange[] = [];
+
+        for (const curr of currentSnapshot) {
+          const prev = prevMap.get(curr.id);
+          if (!prev) continue;
+
+          // Status change
+          if (prev.active !== curr.active) {
+            changes.push({
+              name: curr.name,
+              field: "状态",
+              oldValue: prev.active ? "上架" : "下架",
+              newValue: curr.active ? "上架" : "下架",
+              type: "status"
+            });
+          }
+
+          // Retail price change
+          if (prev.retail !== curr.retail) {
+            changes.push({
+              name: curr.name,
+              field: "零售价",
+              oldValue: prev.retail,
+              newValue: curr.retail,
+              type: "price"
+            });
+          }
+
+          // Agent prices (visible based on current agent level)
+          if (agentLevel === "primary" || agentLevel === "secondary") {
+            if (prev.secondaryAgent !== curr.secondaryAgent) {
+              changes.push({
+                name: curr.name,
+                field: "2级代理价",
+                oldValue: prev.secondaryAgent,
+                newValue: curr.secondaryAgent,
+                type: "price"
+              });
+            }
+          }
+          if (agentLevel === "primary") {
+            if (prev.primaryAgent !== curr.primaryAgent) {
+              changes.push({
+                name: curr.name,
+                field: "1级代理价",
+                oldValue: prev.primaryAgent,
+                newValue: curr.primaryAgent,
+                type: "price"
+              });
+            }
+          }
+        }
+
+        if (changes.length > 0) {
+          // Check if user already acknowledged this exact set of changes
+          const changesHash = JSON.stringify(changes);
+          if (ackRaw !== changesHash) {
+            setPriceChanges(changes);
+            setShowPriceChangeModal(true);
+          }
+        }
+      } catch {
+        // ignore malformed snapshot
+      }
+    }
+
+    // Always save latest snapshot
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(currentSnapshot));
+  }, [mergedGroups, admin.isAdmin, agentLevel]);
+
+  // Admin: toggle product active status
+  const handleToggleActive = useCallback(
+    async (productId: string, productName: string, currentActive: boolean, currentNote: string) => {
+      if (!currentActive) {
+        // Currently offline → go online, no confirmation needed
+        try {
+          const res = await fetch("/api/admin/products", {
+            body: JSON.stringify({ productId, active: true }),
+            headers: { "Content-Type": "application/json" },
+            method: "PUT"
+          });
+          if (res.ok) {
+            setOverrides((prev) => ({
+              ...prev,
+              [productId]: { ...prev[productId], active: true }
+            }));
+            admin.setToast("已上架");
+          }
+        } catch {
+          admin.setToast("操作失败");
+        }
+      } else {
+        // Currently online → go offline, show modal for optional note
+        setOfflineNoteModal({ productId, productName, currentNote });
+      }
+    },
+    [admin]
+  );
+
+  // Handle offline note modal confirm
+  const handleOfflineConfirm = useCallback(
+    async (productId: string, note: string) => {
+      try {
+        const res = await fetch("/api/admin/products", {
+          body: JSON.stringify({ productId, active: false, offlineNote: note }),
+          headers: { "Content-Type": "application/json" },
+          method: "PUT"
+        });
+        if (res.ok) {
+          setOverrides((prev) => ({
+            ...prev,
+            [productId]: { active: false, offlineNote: note }
+          }));
+          admin.setToast("已下架");
+        }
+      } catch {
+        admin.setToast("操作失败");
+      }
+      setOfflineNoteModal(null);
+    },
+    [admin]
+  );
+
+  // Handle price change acknowledgement
+  const handleAckPriceChanges = useCallback(() => {
+    const changesHash = JSON.stringify(priceChanges);
+    localStorage.setItem(SNAPSHOT_ACK_KEY, changesHash);
+    setShowPriceChangeModal(false);
+  }, [priceChanges]);
+
   const handleUnlock = useCallback(() => {
     setUnlockModalOpen(true);
   }, []);
@@ -126,7 +360,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const manualScrollUntilRef = useRef(0);
-  const groupIds = useMemo(() => groups.map((group) => group.id).join("|"), [groups]);
+  const groupIds = useMemo(() => mergedGroups.map((group) => group.id).join("|"), [mergedGroups]);
 
   const scrollToGroup = useCallback((groupId: string, behavior: ScrollBehavior) => {
     const section = document.getElementById(groupId);
@@ -251,7 +485,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       <div className="catalog-toolbar" ref={toolbarRef}>
         <div className="catalog-toolbar-shell">
           <div className="category-tabs" aria-label="产品分类" ref={tabListRef}>
-            {groups.map((group) => (
+            {mergedGroups.map((group) => (
               <a
                 aria-current={activeGroupId === group.id ? "true" : undefined}
                 className={activeGroupId === group.id ? "category-tab is-active" : "category-tab"}
@@ -269,7 +503,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
 
       <section className={`container catalog ${admin.isAdmin ? "is-admin-mode" : ""}`} id="catalog">
         <div className="group-list">
-          {groups.map((group) => (
+          {mergedGroups.map((group) => (
             <section className="product-group" id={group.id} key={group.id}>
               <div className="group-header">
                 <h2>{group.name}</h2>
@@ -282,6 +516,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                   agentLevel={agentLevel}
                   onUnlock={handleUnlock}
                   onUpgrade={handleUpgrade}
+                  onToggleActive={handleToggleActive}
                   products={group.products}
                 />
               </div>
@@ -291,6 +526,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                 agentLevel={agentLevel}
                 onUnlock={handleUnlock}
                 onUpgrade={handleUpgrade}
+                onToggleActive={handleToggleActive}
                 products={group.products}
               />
 
@@ -307,6 +543,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                       agentLevel={agentLevel}
                       onUnlock={handleUnlock}
                       onUpgrade={handleUpgrade}
+                      onToggleActive={handleToggleActive}
                       products={subgroup.products}
                     />
                   </div>
@@ -316,6 +553,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                     agentLevel={agentLevel}
                     onUnlock={handleUnlock}
                     onUpgrade={handleUpgrade}
+                    onToggleActive={handleToggleActive}
                     products={subgroup.products}
                   />
                 </div>
@@ -364,6 +602,21 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
           </div>
         </div>
       ) : null}
+      {offlineNoteModal ? (
+        <OfflineNoteModal
+          productId={offlineNoteModal.productId}
+          productName={offlineNoteModal.productName}
+          currentNote={offlineNoteModal.currentNote}
+          onClose={() => setOfflineNoteModal(null)}
+          onConfirm={handleOfflineConfirm}
+        />
+      ) : null}
+      {showPriceChangeModal && priceChanges.length > 0 ? (
+        <PriceChangeModal
+          changes={priceChanges}
+          onAck={handleAckPriceChanges}
+        />
+      ) : null}
       <svg width="0" height="0" style={{ position: "absolute", width: 0, height: 0 }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="gold-gradient-flow" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -388,12 +641,14 @@ function ProductTable({
   agentLevel,
   onUnlock,
   onUpgrade,
+  onToggleActive,
   products
 }: {
   isAdmin: boolean;
   agentLevel: "none" | "primary" | "secondary";
   onUnlock: () => void;
   onUpgrade: () => void;
+  onToggleActive: (productId: string, productName: string, currentActive: boolean, currentNote: string) => void;
   products: CatalogProduct[];
 }) {
   const isLocked = agentLevel === "none" || agentLevel === "secondary";
@@ -469,10 +724,26 @@ function ProductTable({
               >
                 <td className="product-name">
                   <ProductName product={product} />
+                  {!isAdmin && product.active === false && product.offlineNote ? (
+                    <div className="offline-overlay">
+                      <div className="offline-overlay-ticker">
+                        <span className="offline-overlay-text">{product.offlineNote}</span>
+                        <span className="offline-overlay-text" aria-hidden="true">{product.offlineNote}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </td>
                 {isAdmin ? (
                   <td className="status-cell">
-                    <StatusBadge active={product.active !== false} />
+                    <button
+                      className={product.active !== false ? "admin-toggle is-on" : "admin-toggle is-off"}
+                      onClick={() => onToggleActive(product.id ?? "", product.name, product.active !== false, product.offlineNote ?? "")}
+                      title={product.active !== false ? "点击下架" : "点击上架"}
+                      type="button"
+                    >
+                      {product.active !== false ? <ToggleRight className="icon-sm" /> : <ToggleLeft className="icon-sm" />}
+                      <span>{product.active !== false ? "上架" : "下架"}</span>
+                    </button>
                   </td>
                 ) : null}
                 {isAdmin ? (
@@ -567,12 +838,14 @@ function ProductCards({
   agentLevel,
   onUnlock,
   onUpgrade,
+  onToggleActive,
   products
 }: {
   isAdmin: boolean;
   agentLevel: "none" | "primary" | "secondary";
   onUnlock: () => void;
   onUpgrade: () => void;
+  onToggleActive: (productId: string, productName: string, currentActive: boolean, currentNote: string) => void;
   products: CatalogProduct[];
 }) {
   const isUnlocked = agentLevel !== "none";
@@ -598,12 +871,28 @@ function ProductCards({
 
         return (
           <article className={product.active === false ? "product-card is-offline" : "product-card"} key={product.id}>
-            <h3>
+            <h3 style={{ position: "relative" }}>
               <ProductName product={product} />
+              {!isAdmin && product.active === false && product.offlineNote ? (
+                <div className="offline-overlay">
+                  <div className="offline-overlay-ticker">
+                    <span className="offline-overlay-text">{product.offlineNote}</span>
+                    <span className="offline-overlay-text" aria-hidden="true">{product.offlineNote}</span>
+                  </div>
+                </div>
+              ) : null}
             </h3>
             {isAdmin ? (
               <div className="card-status">
-                <StatusBadge active={product.active !== false} />
+                <button
+                  className={product.active !== false ? "admin-toggle is-on" : "admin-toggle is-off"}
+                  onClick={() => onToggleActive(product.id ?? "", product.name, product.active !== false, product.offlineNote ?? "")}
+                  title={product.active !== false ? "点击下架" : "点击上架"}
+                  type="button"
+                >
+                  {product.active !== false ? <ToggleRight className="icon-sm" /> : <ToggleLeft className="icon-sm" />}
+                  <span>{product.active !== false ? "上架" : "下架"}</span>
+                </button>
               </div>
             ) : null}
             {isAdmin ? <ChannelInfo product={product} /> : null}
@@ -1216,6 +1505,154 @@ export function UpgradeToPrimaryModal({ onClose }: { onClose: () => void }) {
 
         <div className="agent-modal-actions">
           <button className="button button-secondary" onClick={onClose} type="button">
+            我知道了
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function OfflineNoteModal({
+  productId,
+  productName,
+  currentNote,
+  onClose,
+  onConfirm
+}: {
+  productId: string;
+  productName: string;
+  currentNote: string;
+  onClose: () => void;
+  onConfirm: (productId: string, note: string) => Promise<void>;
+}) {
+  const [note, setNote] = useState(currentNote);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    await onConfirm(productId, note.trim());
+    setSubmitting(false);
+  }
+
+  return createPortal(
+    <div aria-modal="true" className="modal-backdrop" role="dialog">
+      <form className="agent-modal login-modal" onSubmit={(e) => void handleSubmit(e)} style={{ maxWidth: "440px" }}>
+        <div className="agent-modal-header">
+          <div>
+            <h2>下架商品</h2>
+            <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>{productName}</p>
+          </div>
+          <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+            <X className="icon-xs" />
+          </button>
+        </div>
+
+        <div className="agent-modal-body login-form">
+          <label>
+            <span>下架原因<span style={{ color: "#94a3b8", fontSize: "12px", marginLeft: "6px" }}>(选填)</span></span>
+            <textarea
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="如：货源不稳定，暂停销售"
+              rows={3}
+              style={{ resize: "vertical", minHeight: "72px", fontFamily: "inherit", fontSize: "14px", padding: "10px 12px", borderRadius: "8px", border: "1px solid #d1d5db", width: "100%", boxSizing: "border-box" }}
+              value={note}
+            />
+          </label>
+          <p style={{ margin: "0", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
+            填写后，下架原因将以红色滚动文字显示在商品名上方。
+          </p>
+        </div>
+
+        <div className="agent-modal-actions">
+          <button className="button button-secondary" onClick={onClose} type="button">
+            取消
+          </button>
+          <button className="button button-danger" disabled={submitting} type="submit">
+            {submitting ? "下架中..." : "确认下架"}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  );
+}
+
+function PriceChangeModal({
+  changes,
+  onAck
+}: {
+  changes: PriceChange[];
+  onAck: () => void;
+}) {
+  return createPortal(
+    <div aria-modal="true" className="modal-backdrop" role="dialog" style={{ zIndex: 110 }}>
+      <div className="agent-modal price-change-modal" style={{ maxWidth: "520px" }}>
+        <div className="agent-modal-header">
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <AlertTriangle className="icon-sm" style={{ color: "#f59e0b", flexShrink: 0 }} />
+            <div>
+              <h2>价格/状态变动通知</h2>
+              <p>以下商品自您上次访问以来发生了变动</p>
+            </div>
+          </div>
+          <button aria-label="关闭" className="modal-close" onClick={onAck} type="button">
+            <X className="icon-xs" />
+          </button>
+        </div>
+
+        <div className="agent-modal-body" style={{ maxHeight: "400px", overflowY: "auto", padding: "0" }}>
+          <table className="price-change-table">
+            <thead>
+              <tr>
+                <th>商品</th>
+                <th>变更项</th>
+                <th>变更前</th>
+                <th>变更后</th>
+              </tr>
+            </thead>
+            <tbody>
+              {changes.map((change, idx) => (
+                <tr key={idx}>
+                  <td className="change-product-name">{change.name}</td>
+                  <td>
+                    <span className="change-field-badge">{change.field}</span>
+                  </td>
+                  <td className="change-old-value">
+                    {change.type === "price" ? (
+                      <span>¥{formatPrice(change.oldValue as number)}</span>
+                    ) : (
+                      <span>{change.oldValue as string}</span>
+                    )}
+                  </td>
+                  <td className="change-new-value">
+                    {change.type === "price" ? (
+                      <span className="change-price-diff">
+                        ¥{formatPrice(change.newValue as number)}
+                        {(change.newValue as number) > (change.oldValue as number) ? (
+                          <ArrowUp className="icon-xs" style={{ color: "#ef4444" }} />
+                        ) : (
+                          <ArrowDown className="icon-xs" style={{ color: "#22c55e" }} />
+                        )}
+                      </span>
+                    ) : (
+                      <span className={change.newValue === "下架" ? "change-status-offline" : "change-status-online"}>
+                        {change.newValue as string}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="agent-modal-actions">
+          <button className="button button-primary" onClick={onAck} style={{ width: "100%", justifyContent: "center" }} type="button">
+            <MessageSquare className="icon-xs" />
             我知道了
           </button>
         </div>

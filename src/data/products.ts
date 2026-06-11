@@ -9,6 +9,7 @@ export type Product = {
   id?: string;
   name: string;
   active?: boolean;
+  offlineNote?: string;
   channel?: ProductChannel;
   cost: number;
   retail: number;

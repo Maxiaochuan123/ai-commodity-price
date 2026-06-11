@@ -2048,4 +2048,218 @@ input {
   fill: url(#gold-gradient-flow) !important;
 }
 
+/* ===== Admin Toggle Button ===== */
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 160ms ease;
+  white-space: nowrap;
+}
 
+.admin-toggle.is-on {
+  color: #0f766e;
+}
+
+.admin-toggle.is-on:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.admin-toggle.is-off {
+  color: #dc2626;
+}
+
+.admin-toggle.is-off:hover {
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.admin-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ===== Offline Overlay with Marquee ===== */
+.product-name {
+  position: relative;
+}
+
+.offline-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 4px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.offline-overlay-ticker {
+  display: flex;
+  gap: 60px;
+  animation: marquee 12s linear infinite;
+  white-space: nowrap;
+}
+
+.offline-overlay-text {
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0 30px;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Mobile card offline overlay */
+.product-card h3 {
+  position: relative;
+}
+
+.product-card .offline-overlay {
+  border-radius: 8px 8px 0 0;
+}
+
+/* ===== Price Change Notification Modal ===== */
+.price-change-modal {
+  border-top: 3px solid #f59e0b;
+}
+
+.price-change-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.price-change-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.price-change-table th {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.price-change-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.price-change-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.price-change-table tbody tr:hover {
+  background: #fefce8;
+}
+
+.change-product-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #111827;
+  font-size: 12px;
+}
+
+.change-field-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f0f4f8;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.change-old-value {
+  color: #94a3b8;
+  text-decoration: line-through;
+  font-size: 12px;
+}
+
+.change-new-value {
+  font-weight: 700;
+  color: #111827;
+  font-size: 12px;
+}
+
+.change-price-diff {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.change-status-offline {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.change-status-online {
+  color: #0f766e;
+  font-weight: 700;
+}
+
+/* ===== Button Danger Style ===== */
+.button-danger {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+}
+
+.button-danger:hover {
+  background: #b91c1c;
+}
+
+.button-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== Price Change Modal Responsive ===== */
+@media (max-width: 720px) {
+  .price-change-modal {
+    max-width: 95vw !important;
+  }
+
+  .price-change-table th,
+  .price-change-table td {
+    padding: 8px 8px;
+    font-size: 11px;
+  }
+
+  .change-product-name {
+    max-width: 100px;
+  }
+}
