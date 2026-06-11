@@ -9,7 +9,8 @@ export const googleGroup: ProductGroup = {
       name: "Google邮箱【美区】【22-24年 稳定老号】【包GCP】",
       cost: 5.5,
       retail: 20,
-      agent: 5,
+      primaryAgent: 10.5,
+      secondaryAgent: 12.5,
       docUrl: "https://www.yuque.com/u8042174/kb/gkhtil3pzub0wz5t",
       channel: planktonChannel
     }

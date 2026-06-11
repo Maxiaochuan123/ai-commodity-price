@@ -1,12 +1,12 @@
 "use client";
 
-import { Copy, ExternalLink, Lock, ShieldCheck, Unlock, X } from "lucide-react";
+import { Coins, Copy, ExternalLink, Lock, ShieldCheck, Unlock, X } from "lucide-react";
 import type { FormEvent, MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAdmin } from "@/components/admin-shell";
-import { BecomeAgentModal } from "@/components/hero-actions";
 import { WechatLink } from "@/components/wechat-button";
+import { ApplyUpgradeButton } from "@/components/apply-upgrade-button";
 import type { Product } from "@/data/products";
 import type { ProductGroup } from "@/data/products";
 
@@ -66,21 +66,30 @@ async function copyText(text: string) {
 export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const admin = useAdmin();
   const [activeGroupId, setActiveGroupId] = useState(groups[0]?.id ?? "");
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [agentLevel, setAgentLevel] = useState<"none" | "primary" | "secondary">("none");
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   useEffect(() => {
     if (admin.isAdmin) {
-      setIsUnlocked(true);
+      setAgentLevel("primary");
       return;
     }
     if (typeof window !== "undefined") {
-      setIsUnlocked(localStorage.getItem("agent_unlocked") === "true");
+      const stored = localStorage.getItem("agent_unlocked_level");
+      if (stored === "primary" || stored === "secondary") {
+        setAgentLevel(stored);
+      } else {
+        setAgentLevel("none");
+      }
     }
   }, [admin.isAdmin]);
 
   const handleUnlock = useCallback(() => {
     setUnlockModalOpen(true);
+  }, []);
+  const handleUpgrade = useCallback(() => {
+    setUpgradeModalOpen(true);
   }, []);
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -238,16 +247,18 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
               <div className="table-shell">
                 <ProductTable
                   isAdmin={admin.isAdmin}
-                  isUnlocked={isUnlocked}
+                  agentLevel={agentLevel}
                   onUnlock={handleUnlock}
+                  onUpgrade={handleUpgrade}
                   products={group.products}
                 />
               </div>
 
               <ProductCards
                 isAdmin={admin.isAdmin}
-                isUnlocked={isUnlocked}
+                agentLevel={agentLevel}
                 onUnlock={handleUnlock}
+                onUpgrade={handleUpgrade}
                 products={group.products}
               />
 
@@ -261,16 +272,18 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                   <div className="table-shell">
                     <ProductTable
                       isAdmin={admin.isAdmin}
-                      isUnlocked={isUnlocked}
+                      agentLevel={agentLevel}
                       onUnlock={handleUnlock}
+                      onUpgrade={handleUpgrade}
                       products={subgroup.products}
                     />
                   </div>
 
                   <ProductCards
                     isAdmin={admin.isAdmin}
-                    isUnlocked={isUnlocked}
+                    agentLevel={agentLevel}
                     onUnlock={handleUnlock}
+                    onUpgrade={handleUpgrade}
                     products={subgroup.products}
                   />
                 </div>
@@ -282,8 +295,11 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       {unlockModalOpen ? (
         <UnlockModal
           onClose={() => setUnlockModalOpen(false)}
-          onUnlockSuccess={() => setIsUnlocked(true)}
+          onUnlockSuccess={(level) => setAgentLevel(level)}
         />
+      ) : null}
+      {upgradeModalOpen ? (
+        <UpgradeToPrimaryModal onClose={() => setUpgradeModalOpen(false)} />
       ) : null}
     </>
   );
@@ -291,15 +307,25 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
 
 function ProductTable({
   isAdmin,
-  isUnlocked,
+  agentLevel,
   onUnlock,
+  onUpgrade,
   products
 }: {
   isAdmin: boolean;
-  isUnlocked: boolean;
+  agentLevel: "none" | "primary" | "secondary";
   onUnlock: () => void;
+  onUpgrade: () => void;
   products: CatalogProduct[];
 }) {
+  const isUnlocked = agentLevel !== "none";
+
+  // Display name of current unlocked agent type
+  const agentHeaderLabel = 
+    agentLevel === "primary" ? "1级代理价" :
+    agentLevel === "secondary" ? "2级代理价" :
+    "代理价";
+
   return (
     <div className={!isUnlocked ? "table-agent-lock-wrap agent-locked" : "table-agent-lock-wrap"} onClick={!isUnlocked ? onUnlock : undefined}>
       <table className="price-table">
@@ -311,59 +337,91 @@ function ProductTable({
             {isAdmin ? <th className="price-cell">成本</th> : null}
             <th className="price-cell">零售</th>
             {isAdmin ? <th className="price-cell profit-price">零售利润</th> : null}
-            {isAdmin ? <th className="price-cell profit-price">扣除代理后利润</th> : null}
-            <th className="price-cell agent-price">
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                代理返现 (每单)
-                {!isUnlocked ? <Lock className="icon-xs" /> : <Unlock className="icon-xs" />}
-              </span>
-            </th>
+            {isAdmin ? (
+              <>
+                <th className="price-cell">1级代理价</th>
+                <th className="price-cell profit-price">1级代理后利润</th>
+                <th className="price-cell">2级代理价</th>
+                <th className="price-cell profit-price">2级代理后利润</th>
+              </>
+            ) : (
+              <th className="price-cell agent-price">
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                  {agentHeaderLabel}
+                  {!isUnlocked ? <Lock className="icon-xs" /> : <Unlock className="icon-xs" />}
+                </span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
-          {products.map((product) => (
-            <tr
-              className={product.active === false ? "is-offline" : undefined}
-              key={product.id}
-            >
-              <td className="product-name">
-                <ProductName product={product} />
-              </td>
-              {isAdmin ? (
-                <td className="status-cell">
-                  <StatusBadge active={product.active !== false} />
-                </td>
-              ) : null}
-              {isAdmin ? (
-                <td className="channel-cell">
-                  <ChannelInfo product={product} />
-                </td>
-              ) : null}
-              {isAdmin ? (
-                <td className="price-cell">
-                  ¥{formatPrice(product.cost ?? 0)}
-                </td>
-              ) : null}
-              <td className="price-cell">
-                ¥{formatPrice(product.retail)}
-              </td>
-              {isAdmin ? (
-                <td className="price-cell profit-price">
-                  ¥{formatPrice(product.retail - (product.cost ?? 0))}
-                </td>
-              ) : null}
-              {isAdmin ? (
-                <td className="price-cell profit-price">
-                  ¥{formatPrice(product.retail - (product.cost ?? 0) - product.agent)}
-                </td>
-              ) : null}
-              <td
-                className={!isUnlocked ? "price-cell agent-price agent-price-locked" : "price-cell agent-price"}
+          {products.map((product) => {
+            // Determine active price to display for agent column
+            const agentPrice = 
+              agentLevel === "secondary" 
+                ? (product.secondaryAgent ?? product.primaryAgent) 
+                : product.primaryAgent;
+
+            const primaryProfit = product.primaryAgent - (product.cost ?? 0);
+            const secondaryPrice = product.secondaryAgent ?? product.primaryAgent;
+            const secondaryProfit = secondaryPrice - (product.cost ?? 0);
+
+            return (
+              <tr
+                className={product.active === false ? "is-offline" : undefined}
+                key={product.id}
               >
-                ¥{formatPrice(product.agent)}
-              </td>
-            </tr>
-          ))}
+                <td className="product-name">
+                  <ProductName product={product} />
+                </td>
+                {isAdmin ? (
+                  <td className="status-cell">
+                    <StatusBadge active={product.active !== false} />
+                  </td>
+                ) : null}
+                {isAdmin ? (
+                  <td className="channel-cell">
+                    <ChannelInfo product={product} />
+                  </td>
+                ) : null}
+                {isAdmin ? (
+                  <td className="price-cell">
+                    ¥{formatPrice(product.cost ?? 0)}
+                  </td>
+                ) : null}
+                <td className="price-cell">
+                  ¥{formatPrice(product.retail)}
+                </td>
+                {isAdmin ? (
+                  <td className="price-cell profit-price">
+                    ¥{formatPrice(product.retail - (product.cost ?? 0))}
+                  </td>
+                ) : null}
+                {isAdmin ? (
+                  <>
+                    <td className="price-cell">
+                      ¥{formatPrice(product.primaryAgent)}
+                    </td>
+                    <td className="price-cell profit-price">
+                      ¥{formatPrice(primaryProfit)}
+                    </td>
+                    <td className="price-cell">
+                      ¥{formatPrice(secondaryPrice)}
+                    </td>
+                    <td className="price-cell profit-price">
+                      ¥{formatPrice(secondaryProfit)}
+                    </td>
+                  </>
+                ) : (
+                  <td
+                    className={!isUnlocked ? "price-cell agent-price agent-price-locked" : "price-cell agent-price"}
+                  >
+                    ¥{formatPrice(agentPrice)}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -372,134 +430,114 @@ function ProductTable({
 
 function ProductCards({
   isAdmin,
-  isUnlocked,
+  agentLevel,
   onUnlock,
+  onUpgrade,
   products
 }: {
   isAdmin: boolean;
-  isUnlocked: boolean;
+  agentLevel: "none" | "primary" | "secondary";
   onUnlock: () => void;
+  onUpgrade: () => void;
   products: CatalogProduct[];
 }) {
+  const isUnlocked = agentLevel !== "none";
+
+  // Display name of current unlocked agent type
+  const agentLabel = 
+    agentLevel === "primary" ? "1级代理价" :
+    agentLevel === "secondary" ? "2级代理价" :
+    "代理价";
+
   return (
     <div className="mobile-cards">
-      {products.map((product) => (
-        <article className={product.active === false ? "product-card is-offline" : "product-card"} key={product.id}>
-          <h3>
-            <ProductName product={product} />
-          </h3>
-          {isAdmin ? (
-            <div className="card-status">
-              <StatusBadge active={product.active !== false} />
-            </div>
-          ) : null}
-          {isAdmin ? <ChannelInfo product={product} /> : null}
-          <div className="card-prices">
+      {products.map((product) => {
+        // Determine active price to display for agent column
+        const agentPrice = 
+          agentLevel === "secondary" 
+            ? (product.secondaryAgent ?? product.primaryAgent) 
+            : product.primaryAgent;
+
+        const primaryProfit = product.primaryAgent - (product.cost ?? 0);
+        const secondaryPrice = product.secondaryAgent ?? product.primaryAgent;
+        const secondaryProfit = secondaryPrice - (product.cost ?? 0);
+
+        return (
+          <article className={product.active === false ? "product-card is-offline" : "product-card"} key={product.id}>
+            <h3>
+              <ProductName product={product} />
+            </h3>
             {isAdmin ? (
-              <>
-                <PriceBlock label="成本" value={product.cost ?? 0} />
-                <PriceBlock label="零售" value={product.retail} />
-                <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
-                <PriceBlock profit label="扣除代理后利润" value={product.retail - (product.cost ?? 0) - product.agent} />
-                {isUnlocked ? (
-                  <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
-                ) : (
-                  <div
-                    className="price-block is-agent"
-                    onClick={onUnlock}
-                    style={{
-                      cursor: "pointer",
-                      position: "relative",
-                      overflow: "hidden",
-                      backgroundColor: "rgba(255, 255, 255, 0.05)",
-                      backdropFilter: "blur(6px)",
-                      WebkitBackdropFilter: "blur(6px)",
-                      border: "1px solid rgba(255, 255, 255, 0.1)"
-                    }}
-                  >
-                    <div className="price-label">代理返现 (每单)</div>
-                    <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(product.agent)}</div>
-                    <div style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "rgba(0, 0, 0, 0.15)",
-                      zIndex: 2
-                    }}>
+              <div className="card-status">
+                <StatusBadge active={product.active !== false} />
+              </div>
+            ) : null}
+            {isAdmin ? <ChannelInfo product={product} /> : null}
+            <div className="card-prices">
+              {isAdmin ? (
+                <>
+                  <PriceBlock label="成本" value={product.cost ?? 0} />
+                  <PriceBlock label="零售" value={product.retail} />
+                  <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
+                  <PriceBlock label="1级代理价" value={product.primaryAgent} />
+                  <PriceBlock profit label="1级代理后利润" value={primaryProfit} />
+                  <PriceBlock label="2级代理价" value={secondaryPrice} />
+                  <PriceBlock profit label="2级代理后利润" value={secondaryProfit} />
+                </>
+              ) : (
+                <>
+                  <PriceBlock label="零售" value={product.retail} />
+                  {isUnlocked ? (
+                    <PriceBlock highlight label={agentLabel} value={agentPrice} />
+                  ) : (
+                    <div
+                      className="price-block is-agent"
+                      onClick={onUnlock}
+                      style={{
+                        cursor: "pointer",
+                        position: "relative",
+                        overflow: "hidden",
+                        backgroundColor: "rgba(255, 255, 255, 0.05)",
+                        backdropFilter: "blur(6px)",
+                        WebkitBackdropFilter: "blur(6px)",
+                        border: "1px solid rgba(255, 255, 255, 0.1)"
+                      }}
+                    >
+                      <div className="price-label">{agentLabel}</div>
+                      <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(agentPrice)}</div>
                       <div style={{
-                        background: "rgba(0, 0, 0, 0.65)",
-                        borderRadius: "50%",
-                        padding: "6px",
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                        border: "1px solid rgba(255, 255, 255, 0.2)"
+                        background: "rgba(0, 0, 0, 0.15)",
+                        zIndex: 2
                       }}>
-                        <Lock className="icon-xs" style={{ color: "#fff" }} />
+                        <div style={{
+                          background: "rgba(0, 0, 0, 0.65)",
+                          borderRadius: "50%",
+                          padding: "6px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                          border: "1px solid rgba(255, 255, 255, 0.2)"
+                        }}>
+                          <Lock className="icon-xs" style={{ color: "#fff" }} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                <PriceBlock label="零售" value={product.retail} />
-                {isUnlocked ? (
-                  <PriceBlock highlight label="代理返现 (每单)" value={product.agent} />
-                ) : (
-                  <div
-                    className="price-block is-agent"
-                    onClick={onUnlock}
-                    style={{
-                      cursor: "pointer",
-                      position: "relative",
-                      overflow: "hidden",
-                      backgroundColor: "rgba(255, 255, 255, 0.05)",
-                      backdropFilter: "blur(6px)",
-                      WebkitBackdropFilter: "blur(6px)",
-                      border: "1px solid rgba(255, 255, 255, 0.1)"
-                    }}
-                  >
-                    <div className="price-label">代理返现 (每单)</div>
-                    <div className="price-value" style={{ filter: "blur(4px)", opacity: 0.6 }}>¥{formatPrice(product.agent)}</div>
-                    <div style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "rgba(0, 0, 0, 0.15)",
-                      zIndex: 2
-                    }}>
-                      <div style={{
-                        background: "rgba(0, 0, 0, 0.65)",
-                        borderRadius: "50%",
-                        padding: "6px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                        border: "1px solid rgba(255, 255, 255, 0.2)"
-                      }}>
-                        <Lock className="icon-xs" style={{ color: "#fff" }} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </article>
-      ))}
+                  )}
+                </>
+              )}
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -646,19 +684,86 @@ function PriceBlock({ highlight, label, profit, value }: { highlight?: boolean; 
   );
 }
 
-function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlockSuccess: () => void }) {
-  const [step, setStep] = useState<"choice" | "enter_code" | "become_agent">("choice");
-  const [code, setCode] = useState("");
+export function UnlockModal({ 
+  onClose, 
+  onUnlockSuccess,
+  initialStep = "choice"
+}: { 
+  onClose: () => void; 
+  onUnlockSuccess: (level: "primary" | "secondary") => void;
+  initialStep?: "choice" | "login" | "register";
+}) {
+  const [step, setStep] = useState<"choice" | "login" | "register">(initialStep);
+  const [loginWechat, setLoginWechat] = useState("");
+  const [regName, setRegName] = useState("");
+  const [regWechat, setRegWechat] = useState("");
+  const [regCode, setRegCode] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (code === "mxcsgnhdl") {
-      localStorage.setItem("agent_unlocked", "true");
-      onUnlockSuccess();
+    if (!loginWechat.trim()) {
+      setError("请输入微信号");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/agents/login", {
+        body: JSON.stringify({ wechatId: loginWechat.trim() }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST"
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { message?: string };
+        setError(data.message ?? "登录失败");
+        return;
+      }
+      const data = (await response.json()) as { agent: { level: number; wechatId: string } };
+      const level = data.agent.level === 1 ? "primary" : "secondary";
+      localStorage.setItem("agent_unlocked_level", level);
+      localStorage.setItem("agent_wechat_id", data.agent.wechatId);
+      onUnlockSuccess(level as "primary" | "secondary");
       onClose();
-    } else {
-      setError("代理码错误");
+    } catch {
+      setError("网络错误");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegister(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!regName.trim() || !regWechat.trim() || !regCode.trim()) {
+      setError("请填写完整信息");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/agents", {
+        body: JSON.stringify({
+          name: regName.trim(),
+          wechatId: regWechat.trim(),
+          activationCode: regCode.trim()
+        }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST"
+      });
+      if (!response.ok) {
+        const data = (await response.json()) as { message?: string };
+        setError(data.message ?? "注册失败");
+        return;
+      }
+      localStorage.setItem("agent_unlocked_level", "secondary");
+      localStorage.setItem("agent_wechat_id", regWechat.trim());
+      onUnlockSuccess("secondary");
+      onClose();
+    } catch {
+      setError("网络错误");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -668,8 +773,8 @@ function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlo
         <div className="agent-modal login-modal" style={{ maxWidth: "380px" }}>
           <div className="agent-modal-header">
             <div>
-              <h2>选择解锁方式</h2>
-              <p>请选择您的身份以继续</p>
+              <h2>代理专区</h2>
+              <p>登录或注册以查看代理专属报价</p>
             </div>
             <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
               <X className="icon-xs" />
@@ -677,21 +782,21 @@ function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlo
           </div>
 
           <div className="agent-modal-body" style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "24px 20px" }}>
-            <button 
-              className="button button-primary" 
-              onClick={() => setStep("enter_code")}
+            <button
+              className="button button-primary"
+              onClick={() => { setStep("login"); setError(""); }}
               style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: "15px" }}
               type="button"
             >
-              我是代理
+              代理登录
             </button>
-            <button 
-              className="button button-secondary" 
-              onClick={() => setStep("become_agent")}
+            <button
+              className="button button-accent"
+              onClick={() => { setStep("register"); setError(""); }}
               style={{ width: "100%", padding: "14px", justifyContent: "center", fontSize: "15px" }}
               type="button"
             >
-              我想成为代理
+              注册成为代理
             </button>
           </div>
         </div>
@@ -700,17 +805,55 @@ function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlo
     );
   }
 
-  if (step === "become_agent") {
-    return <BecomeAgentModal onClose={() => setStep("choice")} />;
+  if (step === "login") {
+    return createPortal(
+      <div aria-modal="true" className="modal-backdrop" role="dialog">
+        <form className="agent-modal login-modal" onSubmit={(e) => void handleLogin(e)}>
+          <div className="agent-modal-header">
+            <div>
+              <h2>代理登录</h2>
+              <p>使用注册的微信号登录</p>
+            </div>
+            <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+              <X className="icon-xs" />
+            </button>
+          </div>
+
+          <div className="agent-modal-body login-form">
+            <label>
+              微信号
+              <input
+                autoFocus
+                onChange={(e) => setLoginWechat(e.target.value)}
+                placeholder="请输入注册时的微信号"
+                value={loginWechat}
+              />
+            </label>
+            {error ? <p className="form-error">{error}</p> : null}
+          </div>
+
+          <div className="agent-modal-actions">
+            <button className="button button-secondary" onClick={() => { setStep("choice"); setError(""); }} type="button">
+              返回
+            </button>
+            <button className="button button-primary" disabled={loading} type="submit">
+              {loading ? "登录中..." : "登录"}
+            </button>
+          </div>
+        </form>
+      </div>,
+      document.body
+    );
   }
 
+  // Register step
   return createPortal(
     <div aria-modal="true" className="modal-backdrop" role="dialog">
-      <form className="agent-modal login-modal" onSubmit={submit}>
+      <form className="agent-modal login-modal" onSubmit={(e) => void handleRegister(e)} style={{ maxWidth: "480px" }}>
         <div className="agent-modal-header">
           <div>
-            <h2>请输入代理码</h2>
-            <p>输入正确的代理码以解锁代理返现额度。</p>
+            <h2>注册成为代理</h2>
+            <p>填写信息注册，注册通过即享 2 级代理价</p>
           </div>
           <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
             <X className="icon-xs" />
@@ -718,28 +861,139 @@ function UnlockModal({ onClose, onUnlockSuccess }: { onClose: () => void; onUnlo
         </div>
 
         <div className="agent-modal-body login-form">
+          <div className="agent-note" style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <ShieldCheck className="icon-sm" style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: "12.5px", color: "#0f766e", fontWeight: 500, whiteSpace: "nowrap" }}>
+                注册即享 <strong>2 级代理价</strong>，<strong>1 级代理价</strong>更劲爆！
+              </span>
+            </div>
+            <ApplyUpgradeButton style={{ flexShrink: 0, marginLeft: "auto" }} />
+          </div>
           <label>
-            代理码
+            姓名
             <input
               autoFocus
-              onChange={(event) => setCode(event.target.value)}
-              placeholder="请输入代理码"
-              type="password"
-              value={code}
+              onChange={(e) => setRegName(e.target.value)}
+              placeholder="请输入您的姓名"
+              value={regName}
+            />
+          </label>
+          <label>
+            微信号
+            <input
+              onChange={(e) => setRegWechat(e.target.value)}
+              placeholder="请输入您的微信号"
+              value={regWechat}
+            />
+          </label>
+          <label>
+            代理注册激活码
+            <input
+              onChange={(e) => setRegCode(e.target.value)}
+              placeholder="请输入代理注册激活码"
+              value={regCode}
             />
           </label>
           {error ? <p className="form-error">{error}</p> : null}
         </div>
 
         <div className="agent-modal-actions">
-          <button className="button button-secondary" onClick={() => setStep("choice")} type="button">
+          <button 
+            className="button button-secondary" 
+            onClick={() => { 
+              if (initialStep === "register") {
+                onClose();
+              } else {
+                setStep("choice"); 
+              }
+              setError(""); 
+            }} 
+            type="button"
+          >
             返回
           </button>
-          <button className="button button-primary" type="submit">
-            确定
+          <button className="button button-primary" disabled={loading} type="submit">
+            {loading ? "注册中..." : "注册"}
           </button>
         </div>
       </form>
+    </div>,
+    document.body
+  );
+}
+
+export function UpgradeToPrimaryModal({ onClose }: { onClose: () => void }) {
+  return createPortal(
+    <div aria-modal="true" className="modal-backdrop" role="dialog">
+      <div className="agent-modal login-modal" style={{ maxWidth: "440px" }}>
+        <div className="agent-modal-header">
+          <div>
+            <h2>解锁 1 级代理价</h2>
+            <p>选择以下任意一种方式解锁更优惠的 1 级代理价格</p>
+          </div>
+          <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+            <X className="icon-xs" />
+          </button>
+        </div>
+
+        <div className="agent-modal-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Option 1: Pay 288 */}
+          <div style={{
+            border: "1px solid #fed7aa",
+            borderRadius: "12px",
+            background: "#fff7ed",
+            padding: "16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#c2410c", fontWeight: 700 }}>
+              <Coins className="icon-sm" style={{ color: "#f59e0b" }} />
+              <span>方式一：支付解锁</span>
+            </div>
+            <p style={{ margin: 0, fontSize: "14px", color: "#475569", lineHeight: 1.6 }}>
+              支付 <strong>288 元</strong> 即可永久解锁 1 级代理专属特权。
+            </p>
+          </div>
+
+          {/* Option 2: Talk on WeChat */}
+          <div style={{
+            border: "1px solid #ccfbf1",
+            borderRadius: "12px",
+            background: "#f0fdfa",
+            padding: "16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#0f766e", fontWeight: 700 }}>
+              <ShieldCheck className="icon-sm" />
+              <span>方式二：带量微信详谈</span>
+            </div>
+            <p style={{ margin: 0, fontSize: "14px", color: "#475569", lineHeight: 1.6 }}>
+              若您有较大稳定的单量，可联系微信说明量级，免费升级 1 级代理价。
+            </p>
+          </div>
+
+          <div style={{ 
+            marginTop: "4px",
+            padding: "12px 16px",
+            border: "1px solid #e2e8f0",
+            borderRadius: "8px",
+            background: "#f8fafc",
+            textAlign: "center"
+          }}>
+            <WechatLink wechat="mxcsgnh" />
+          </div>
+        </div>
+
+        <div className="agent-modal-actions">
+          <button className="button button-secondary" onClick={onClose} type="button">
+            我知道了
+          </button>
+        </div>
+      </div>
     </div>,
     document.body
   );

@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Edit3, Eye, Power, Sparkles, X } from "lucide-react";
+import { Edit3, Eye, Power, Sparkles, Users, X } from "lucide-react";
+import { AgentManagement } from "@/components/agent-management";
 
 type AdminContextValue = {
   editMode: boolean;
@@ -29,6 +30,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [agentMgmtOpen, setAgentMgmtOpen] = useState(false);
+  const [newAgentCount, setNewAgentCount] = useState(0);
 
   async function refreshAdmin() {
     const response = await fetch("/api/admin/me", { cache: "no-store" });
@@ -36,10 +39,27 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setIsAdmin(data.isAdmin);
   }
 
+  const fetchNotifications = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const response = await fetch("/api/agents/notifications", { cache: "no-store" });
+      if (response.ok) {
+        const data = (await response.json()) as { count: number };
+        setNewAgentCount(data.count);
+      }
+    } catch {
+      // ignore
+    }
+  }, [isAdmin]);
+
   useEffect(() => {
     setMounted(true);
     void refreshAdmin();
   }, []);
+
+  useEffect(() => {
+    void fetchNotifications();
+  }, [fetchNotifications]);
 
   useEffect(() => {
     if (!toast) return;
@@ -71,6 +91,17 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       {children}
       {isAdmin ? (
         <div className="admin-floating-actions">
+          <button
+            aria-label="代理管理"
+            className="button button-accent agent-mgmt-button"
+            onClick={() => setAgentMgmtOpen(true)}
+            type="button"
+          >
+            <Users className="icon-xs" />
+            {newAgentCount > 0 ? (
+              <span className="notification-badge">{newAgentCount > 99 ? "99+" : newAgentCount}</span>
+            ) : null}
+          </button>
           <button aria-label="退出登录" className="button button-danger-icon" onClick={() => setConfirmLogoutOpen(true)} type="button">
             <Power className="icon-xs" />
           </button>
@@ -85,6 +116,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           onCancel={() => setConfirmLogoutOpen(false)}
           onConfirm={() => void logout()}
           title="确认退出登录？"
+        />
+      ) : null}
+      {mounted && agentMgmtOpen ? (
+        <AgentManagement
+          onClose={() => setAgentMgmtOpen(false)}
+          onNotificationsClear={() => setNewAgentCount(0)}
         />
       ) : null}
       {mounted && toast ? createPortal(<div className="site-toast">{toast}</div>, document.body) : null}

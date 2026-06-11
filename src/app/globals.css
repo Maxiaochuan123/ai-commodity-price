@@ -1629,3 +1629,287 @@ input {
   }
 }
 
+/* -------------------------------------------------------------------------- */
+/* Agent Management Styles                                                     */
+/* -------------------------------------------------------------------------- */
+
+.agent-management-modal {
+  width: min(100%, 680px);
+  max-height: calc(100dvh - 40px);
+}
+
+.agent-management-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  min-height: 300px;
+}
+
+.agent-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-search-input-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px 12px;
+  transition: border-color 160ms ease;
+}
+
+.agent-search-input-wrap:focus-within {
+  border-color: #0f766e;
+  outline: 2px solid rgba(15, 118, 110, 0.16);
+}
+
+.agent-search-input-wrap input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.agent-search-input-wrap input::placeholder {
+  color: #94a3b8;
+}
+
+.agent-count-badge {
+  flex: 0 0 auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #f8fafc;
+  padding: 6px 12px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.agent-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 20px;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.agent-empty-state p {
+  margin: 0;
+}
+
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: calc(100dvh - 280px);
+}
+
+.agent-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 14px 16px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.agent-list-item:hover {
+  border-color: rgba(15, 118, 110, 0.25);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* New agent highlight — blue glow for registrations within 1 day */
+.agent-list-item.is-new {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(219, 234, 254, 0.4));
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.12), 0 4px 16px rgba(59, 130, 246, 0.1);
+}
+
+.agent-list-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-list-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-list-name {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.agent-level-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+.agent-level-badge.is-primary {
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.agent-level-badge.is-secondary {
+  border: 1px solid #ccfbf1;
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.agent-new-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 999px;
+  background: rgba(219, 234, 254, 0.7);
+  padding: 2px 8px;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.4;
+  animation: softPop 520ms ease both;
+}
+
+.agent-list-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.agent-list-item-meta span {
+  white-space: nowrap;
+}
+
+.agent-edit-button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  min-width: auto;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Notification badge */
+.agent-mgmt-button {
+  position: relative;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ef4444;
+  padding: 0 5px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  animation: softPop 300ms ease both;
+}
+
+/* Agent level toggle in edit modal */
+.agent-level-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.agent-level-option {
+  flex: 1;
+  border: 0;
+  background: #ffffff;
+  padding: 10px 16px;
+  color: #475569;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.agent-level-option:first-child {
+  border-right: 1px solid #cbd5e1;
+}
+
+.agent-level-option:hover {
+  background: #f8fafc;
+}
+
+.agent-level-option.is-active {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.agent-level-option.is-active:hover {
+  background: #0d9488;
+}
+
+@media (max-width: 720px) {
+  .agent-management-modal {
+    width: 100%;
+    max-height: calc(100dvh - 32px);
+  }
+
+  .agent-list-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .agent-edit-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .agent-search-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .agent-count-badge {
+    width: 100%;
+    text-align: center;
+  }
+}

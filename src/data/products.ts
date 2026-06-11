@@ -12,7 +12,8 @@ export type Product = {
   channel?: ProductChannel;
   cost: number;
   retail: number;
-  agent: number;
+  primaryAgent: number;
+  secondaryAgent?: number;
   docUrl?: string;
 };
 
