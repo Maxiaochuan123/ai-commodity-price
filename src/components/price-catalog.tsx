@@ -2236,7 +2236,7 @@ function GptSessionModal({ version, onClose, setToast }: GptSessionModalProps) {
               </div>
               <div style={{ fontSize: "12px", color: "#15803d", paddingLeft: "24px" }}>
                 <div><strong>识别到您的邮箱：</strong>{parsedEmail || "未识别到邮箱"}</div>
-                <div><strong>txt 文件名：</strong>{parsedEmail ? `${parsedEmail}+${version}.txt` : `账号+${version}.txt`}</div>
+                <div><strong>txt 文件名：</strong>{parsedEmail ? `${parsedEmail}-${version}.txt` : `账号+${version}.txt`}</div>
               </div>
             </div>
           )}
