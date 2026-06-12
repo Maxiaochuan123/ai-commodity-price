@@ -54,8 +54,8 @@ export const claudeGroup: ProductGroup = {
           name: "Claude Pro 5x 1个月 成品号/黑充【无质保！无质保！无质保！】",
           cost: 430,
           retail: 568,
-          primaryAgent: 480,
-          secondaryAgent: 500,
+          primaryAgent: 460,
+          secondaryAgent: 480,
           docUrl: "https://www.yuque.com/u8042174/kb/hk6oqwvkkslgw9ba?singleDoc#",
           channel: lemonWatermelonChannel
         }

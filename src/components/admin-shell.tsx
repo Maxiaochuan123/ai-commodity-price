@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Edit3, Eye, Power, Sparkles, Users, X } from "lucide-react";
+import { Bell, Edit3, Eye, Power, Sparkles, Users, X } from "lucide-react";
 import { AgentManagement } from "@/components/agent-management";
 
 type AdminContextValue = {
@@ -31,6 +31,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [agentMgmtOpen, setAgentMgmtOpen] = useState(false);
+  const [announcementOpen, setAnnouncementOpen] = useState(false);
   const [newAgentCount, setNewAgentCount] = useState(0);
   const hasRefreshedRef = useRef(false);
 
@@ -95,6 +96,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       {isAdmin ? (
         <div className="admin-floating-actions">
           <button
+            aria-label="公告设置"
+            className="button button-accent agent-mgmt-button"
+            onClick={() => setAnnouncementOpen(true)}
+            type="button"
+          >
+            <Bell className="icon-xs" />
+            <span>公告设置</span>
+          </button>
+          <button
             aria-label="代理管理"
             className="button button-accent agent-mgmt-button"
             onClick={() => setAgentMgmtOpen(true)}
@@ -127,6 +137,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           onClose={() => setAgentMgmtOpen(false)}
           onNotificationsClear={() => setNewAgentCount(0)}
         />
+      ) : null}
+      {mounted && announcementOpen ? (
+        <AnnouncementSettingsModal onClose={() => setAnnouncementOpen(false)} />
       ) : null}
       {mounted && toast ? createPortal(<div className="site-toast">{toast}</div>, document.body) : null}
     </AdminContext.Provider>
@@ -254,9 +267,136 @@ function LoginModal({ onClose, onLoggedIn }: { onClose: () => void; onLoggedIn: 
           {error ? <p className="form-error">{error}</p> : null}
         </div>
 
-        <div className="agent-modal-actions">
-          <button className="button button-primary" disabled={loading} type="submit">
-            {loading ? "登录中" : "登录"}
+        <div className="agent-modal-actions" style={{ padding: "16px 24px" }}>
+          <button className="button button-primary" disabled={loading} type="submit" style={{ width: "100%", justifyContent: "center" }}>
+            {loading ? "登录中..." : "登录"}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  );
+}
+
+function AnnouncementSettingsModal({ onClose }: { onClose: () => void }) {
+  const admin = useAdmin();
+  const [guest, setGuest] = useState("");
+  const [agent, setAgent] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/announcements")
+      .then(async (res) => {
+        if (res.ok) {
+          const data = (await res.json()) as { announcements: { guest: string; agent: string } };
+          setGuest(data.announcements.guest || "");
+          setAgent(data.announcements.agent || "");
+        }
+      })
+      .finally(() => {
+        setFetching(false);
+      });
+  }, []);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/announcements", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guest, agent }),
+      });
+      if (res.ok) {
+        admin.setToast("公告保存成功");
+        onClose();
+      } else {
+        admin.setToast("保存失败");
+      }
+    } catch {
+      admin.setToast("网络错误");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return createPortal(
+    <div aria-modal="true" className="modal-backdrop" role="dialog">
+      <form className="agent-modal login-modal" onSubmit={(e) => void handleSubmit(e)} style={{ maxWidth: "480px" }}>
+        <div className="agent-modal-header" style={{ padding: "18px 24px" }}>
+          <div>
+            <h2 style={{ fontSize: "18px", fontWeight: 700 }}>公告配置</h2>
+            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>配置分别向游客和代理商展示的弹窗公告</p>
+          </div>
+          <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+            <X className="icon-xs" />
+          </button>
+        </div>
+
+        <div className="agent-modal-body" style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+          {fetching ? (
+            <div style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>加载中...</div>
+          ) : (
+            <>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13.5px", fontWeight: 600, color: "#334155" }}>
+                游客公告
+                <p style={{ margin: 0, fontSize: "11px", color: "#64748b", fontWeight: 400 }}>普通游客未登录时进站展示的弹窗，留空则不展示。</p>
+                <textarea
+                  value={guest}
+                  onChange={(e) => setGuest(e.target.value)}
+                  placeholder="请输入游客公告内容，支持换行..."
+                  rows={4}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontFamily: "inherit",
+                    fontWeight: 400,
+                    outline: "none",
+                    resize: "none",
+                    boxSizing: "border-box",
+                    marginTop: "4px"
+                  }}
+                />
+              </label>
+
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13.5px", fontWeight: 600, color: "#334155" }}>
+                代理公告
+                <p style={{ margin: 0, fontSize: "11px", color: "#64748b", fontWeight: 400 }}>1级或2级代理登录进站后展示的弹窗，留空则不展示。</p>
+                <textarea
+                  value={agent}
+                  onChange={(e) => setAgent(e.target.value)}
+                  placeholder="请输入代理商公告内容，支持换行..."
+                  rows={4}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontFamily: "inherit",
+                    fontWeight: 400,
+                    outline: "none",
+                    resize: "none",
+                    boxSizing: "border-box",
+                    marginTop: "4px"
+                  }}
+                />
+              </label>
+            </>
+          )}
+        </div>
+
+        <div className="agent-modal-actions" style={{ padding: "16px 24px" }}>
+          <button className="button button-secondary" onClick={onClose} type="button" style={{ flex: 1 }}>
+            取消
+          </button>
+          <button className="button button-primary" disabled={loading || fetching} type="submit" style={{ flex: 1 }}>
+            {loading ? "保存中..." : "保存"}
           </button>
         </div>
       </form>

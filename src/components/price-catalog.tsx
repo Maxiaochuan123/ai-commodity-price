@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowDown, ArrowUp, Check, Coins, Copy, Download, ExternalLink, FileText, Lock, MessageSquare, ShieldCheck, ToggleLeft, ToggleRight, Unlock, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Bell, Check, Coins, Copy, Download, ExternalLink, FileText, Lock, MessageSquare, ShieldCheck, ToggleLeft, ToggleRight, Unlock, X } from "lucide-react";
 import type { FormEvent, MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -120,6 +120,8 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const [showPriceChangeModal, setShowPriceChangeModal] = useState(false);
   const [hoveredTooltip, setHoveredTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
   const [sessionModalVersion, setSessionModalVersion] = useState<string | null>(null);
+  const [overridesLoaded, setOverridesLoaded] = useState(false);
+  const [showAnnouncement, setShowAnnouncement] = useState<{ type: "guest" | "agent"; content: string } | null>(null);
 
   useEffect(() => {
     if (admin.isAdmin) {
@@ -178,6 +180,9 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
       })
       .catch(() => {
         // ignore
+      })
+      .finally(() => {
+        setOverridesLoaded(true);
       });
   }, []);
 
@@ -206,6 +211,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
 
   // Price change detection via localStorage snapshot
   useEffect(() => {
+    if (!overridesLoaded) return;
     if (admin.isAdmin) return;
 
     const allMerged = mergedGroups.flatMap((g) =>
@@ -311,7 +317,48 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
 
     // Always save latest snapshot
     localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(currentSnapshot));
-  }, [mergedGroups, admin.isAdmin, agentLevel]);
+  }, [mergedGroups, admin.isAdmin, agentLevel, overridesLoaded]);
+
+  // Fetch and display guest/agent announcement popups
+  useEffect(() => {
+    if (admin.isAdmin) return;
+
+    fetch("/api/admin/announcements")
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = (await res.json()) as { announcements: { guest: string; agent: string } };
+        const guestAnn = data.announcements.guest?.trim() || "";
+        const agentAnn = data.announcements.agent?.trim() || "";
+
+        if (agentLevel === "none") {
+          if (guestAnn) {
+            const ack = localStorage.getItem("guest_announcement_ack");
+            if (ack !== guestAnn) {
+              setShowAnnouncement({ type: "guest", content: guestAnn });
+            }
+          }
+        } else if (agentLevel === "primary" || agentLevel === "secondary") {
+          if (agentAnn) {
+            const ack = localStorage.getItem("agent_announcement_ack");
+            if (ack !== agentAnn) {
+              setShowAnnouncement({ type: "agent", content: agentAnn });
+            }
+          }
+        }
+      })
+      .catch(() => {});
+  }, [admin.isAdmin, agentLevel]);
+
+  function handleAckAnnouncement() {
+    if (!showAnnouncement) return;
+    const { type, content } = showAnnouncement;
+    if (type === "guest") {
+      localStorage.setItem("guest_announcement_ack", content);
+    } else {
+      localStorage.setItem("agent_announcement_ack", content);
+    }
+    setShowAnnouncement(null);
+  }
 
   // Admin: toggle product active status
   const handleToggleActive = useCallback(
@@ -656,6 +703,13 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
           setToast={admin.setToast}
         />
       )}
+      {showAnnouncement && (
+        <AnnouncementModal
+          content={showAnnouncement.content}
+          type={showAnnouncement.type}
+          onAck={handleAckAnnouncement}
+        />
+      )}
       <svg width="0" height="0" style={{ position: "absolute", width: 0, height: 0 }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="gold-gradient-flow" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -750,14 +804,11 @@ function ProductTable({
             {isAdmin ? <th className="status-cell">状态</th> : null}
             {isAdmin ? <th className="channel-cell">渠道</th> : null}
             {isAdmin ? <th className="price-cell">成本</th> : null}
-            <th className="price-cell">零售</th>
-            {isAdmin ? <th className="price-cell profit-price">零售利润</th> : null}
+            <th className="price-cell">零售价</th>
             {isAdmin ? (
               <>
                 <th className="price-cell">1级代理价</th>
-                <th className="price-cell profit-price">1级代理后利润</th>
                 <th className="price-cell">2级代理价</th>
-                <th className="price-cell profit-price">2级代理后利润</th>
               </>
             ) : (
               <>
@@ -842,26 +893,26 @@ function ProductTable({
                   </td>
                 ) : null}
                 <td className="price-cell">
-                  ¥{formatPrice(product.retail)}
+                  <span>¥{formatPrice(product.retail)}</span>
+                  {isAdmin && (
+                    <span style={{ color: "#22c55e", fontSize: "12px", marginLeft: "6px", fontWeight: 500 }}>
+                      (¥{formatPrice(product.retail - (product.cost ?? 0))})
+                    </span>
+                  )}
                 </td>
-                {isAdmin ? (
-                  <td className="price-cell profit-price">
-                    ¥{formatPrice(product.retail - (product.cost ?? 0))}
-                  </td>
-                ) : null}
                 {isAdmin ? (
                   <>
                     <td className="price-cell">
-                      ¥{formatPrice(product.primaryAgent)}
-                    </td>
-                    <td className="price-cell profit-price">
-                      ¥{formatPrice(primaryProfit)}
+                      <span>¥{formatPrice(product.primaryAgent)}</span>
+                      <span style={{ color: "#22c55e", fontSize: "12px", marginLeft: "6px", fontWeight: 500 }}>
+                        (¥{formatPrice(primaryProfit)})
+                      </span>
                     </td>
                     <td className="price-cell">
-                      ¥{formatPrice(secondaryPrice)}
-                    </td>
-                    <td className="price-cell profit-price">
-                      ¥{formatPrice(secondaryProfit)}
+                      <span>¥{formatPrice(secondaryPrice)}</span>
+                      <span style={{ color: "#22c55e", fontSize: "12px", marginLeft: "6px", fontWeight: 500 }}>
+                        (¥{formatPrice(secondaryProfit)})
+                      </span>
                     </td>
                   </>
                 ) : (
@@ -996,7 +1047,7 @@ function ProductCards({
               {isAdmin ? (
                 <>
                   <PriceBlock label="成本" value={product.cost ?? 0} />
-                  <PriceBlock label="零售" value={product.retail} />
+                  <PriceBlock label="零售价" value={product.retail} />
                   <PriceBlock profit label="零售利润" value={product.retail - (product.cost ?? 0)} />
                   <PriceBlock label="1级代理价" value={product.primaryAgent} />
                   <PriceBlock profit label="1级代理后利润" value={primaryProfit} />
@@ -1005,7 +1056,7 @@ function ProductCards({
                 </>
               ) : (
                 <>
-                  <PriceBlock label="零售" value={product.retail} />
+                  <PriceBlock label="零售价" value={product.retail} />
                   
                   {/* 2级代理价 */}
                   {agentLevel === "none" ? (
@@ -1785,7 +1836,7 @@ function PriceChangeModal({
                 <th style={{ paddingLeft: "24px" }}>商品</th>
                 <th>状态</th>
                 {showCost && <th>成本</th>}
-                {showRetail && <th style={(!showSecondary && !showPrimary) ? { paddingRight: "24px" } : undefined}>零售</th>}
+                {showRetail && <th style={(!showSecondary && !showPrimary) ? { paddingRight: "24px" } : undefined}>零售价</th>}
                 {showSecondary && <th style={(!showPrimary) ? { paddingRight: "24px" } : undefined}>2级代理</th>}
                 {showPrimary && <th style={{ paddingRight: "24px" }}>1级代理</th>}
               </tr>
@@ -2204,6 +2255,68 @@ function GptSessionModal({ version, onClose, setToast }: GptSessionModalProps) {
             </button>
           </div>
         ) : null}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+interface AnnouncementModalProps {
+  content: string;
+  type: "guest" | "agent";
+  onAck: () => void;
+}
+
+function AnnouncementModal({ content, type, onAck }: AnnouncementModalProps) {
+  return createPortal(
+    <div aria-modal="true" className="modal-backdrop" role="dialog" style={{ zIndex: 120 }}>
+      <div className="agent-modal" style={{ maxWidth: "420px" }}>
+        <div className="agent-modal-header" style={{ padding: "18px 24px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              background: type === "agent" ? "#f0fdfa" : "#f8fafc",
+              border: type === "agent" ? "1px solid #ccfbf1" : "1px solid #e2e8f0"
+            }}>
+              <Bell className="icon-sm" style={{ color: type === "agent" ? "#0f766e" : "#475569" }} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1e293b", margin: 0 }}>
+                {type === "agent" ? "代理商公告" : "客户公告"}
+              </h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="agent-modal-body" style={{ padding: "10px 24px 20px" }}>
+          <div style={{
+            fontSize: "14px",
+            color: "#475569",
+            lineHeight: 1.6,
+            whiteSpace: "pre-wrap",
+            maxHeight: "300px",
+            overflowY: "auto",
+            padding: "8px 0"
+          }}>
+            {content}
+          </div>
+        </div>
+
+        <div className="agent-modal-actions" style={{ padding: "14px 24px 18px" }}>
+          <button
+            className="button button-primary"
+            onClick={onAck}
+            style={{ width: "100%", justifyContent: "center" }}
+            type="button"
+          >
+            我知道啦
+          </button>
+        </div>
       </div>
     </div>,
     document.body
