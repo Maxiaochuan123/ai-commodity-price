@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowDown, ArrowUp, Check, Coins, Copy, ExternalLink, Lock, MessageSquare, ShieldCheck, ToggleLeft, ToggleRight, Unlock, X } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Check, Coins, Copy, Download, ExternalLink, FileText, Lock, MessageSquare, ShieldCheck, ToggleLeft, ToggleRight, Unlock, X } from "lucide-react";
 import type { FormEvent, MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -119,6 +119,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
   const [priceChanges, setPriceChanges] = useState<ProductPriceChange[]>([]);
   const [showPriceChangeModal, setShowPriceChangeModal] = useState(false);
   const [hoveredTooltip, setHoveredTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [sessionModalVersion, setSessionModalVersion] = useState<string | null>(null);
 
   useEffect(() => {
     if (admin.isAdmin) {
@@ -540,6 +541,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                   onToggleActive={handleToggleActive}
                   products={group.products}
                   onHoverTooltip={setHoveredTooltip}
+                  onOpenSessionModal={setSessionModalVersion}
                 />
               </div>
 
@@ -551,6 +553,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                 onToggleActive={handleToggleActive}
                 products={group.products}
                 onHoverTooltip={setHoveredTooltip}
+                onOpenSessionModal={setSessionModalVersion}
               />
 
               {group.subgroups?.map((subgroup) => (
@@ -569,6 +572,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                       onToggleActive={handleToggleActive}
                       products={subgroup.products}
                       onHoverTooltip={setHoveredTooltip}
+                      onOpenSessionModal={setSessionModalVersion}
                     />
                   </div>
 
@@ -580,6 +584,7 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
                     onToggleActive={handleToggleActive}
                     products={subgroup.products}
                     onHoverTooltip={setHoveredTooltip}
+                    onOpenSessionModal={setSessionModalVersion}
                   />
                 </div>
               ))}
@@ -644,16 +649,23 @@ export function PriceCatalog({ groups }: { groups: CatalogGroup[] }) {
           onAck={handleAckPriceChanges}
         />
       ) : null}
+      {sessionModalVersion && (
+        <GptSessionModal
+          version={sessionModalVersion}
+          onClose={() => setSessionModalVersion(null)}
+          setToast={admin.setToast}
+        />
+      )}
       <svg width="0" height="0" style={{ position: "absolute", width: 0, height: 0 }} xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="gold-gradient-flow" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#bf953f">
+            <stop offset="0%" stopColor="#bf953f">
               <animate attributeName="stop-color" values="#bf953f; #fcf6ba; #b38728; #fbf5b7; #bf953f" dur="3s" repeatCount="indefinite" />
             </stop>
-            <stop offset="50%" stop-color="#fcf6ba">
+            <stop offset="50%" stopColor="#fcf6ba">
               <animate attributeName="stop-color" values="#fcf6ba; #b38728; #fbf5b7; #bf953f; #fcf6ba" dur="3s" repeatCount="indefinite" />
             </stop>
-            <stop offset="100%" stop-color="#b38728">
+            <stop offset="100%" stopColor="#b38728">
               <animate attributeName="stop-color" values="#b38728; #fbf5b7; #bf953f; #fcf6ba; #b38728" dur="3s" repeatCount="indefinite" />
             </stop>
           </linearGradient>
@@ -705,7 +717,8 @@ function ProductTable({
   onUpgrade,
   onToggleActive,
   products,
-  onHoverTooltip
+  onHoverTooltip,
+  onOpenSessionModal
 }: {
   isAdmin: boolean;
   agentLevel: "none" | "primary" | "secondary";
@@ -714,6 +727,7 @@ function ProductTable({
   onToggleActive: (productId: string, productName: string, currentActive: boolean, currentNote: string) => void;
   products: CatalogProduct[];
   onHoverTooltip: (tooltip: { text: string; x: number; y: number } | null) => void;
+  onOpenSessionModal: (version: string) => void;
 }) {
   const isLocked = agentLevel === "none" || agentLevel === "secondary";
 
@@ -787,7 +801,7 @@ function ProductTable({
                 key={product.id}
               >
                 <td className="product-name">
-                  <ProductName product={product} />
+                  <ProductName product={product} onOpenSessionModal={onOpenSessionModal} />
                   {!isAdmin && product.active === false && product.offlineNote ? (
                     <div className="offline-overlay">
                       <div className="offline-overlay-ticker">
@@ -911,7 +925,8 @@ function ProductCards({
   onUpgrade,
   onToggleActive,
   products,
-  onHoverTooltip
+  onHoverTooltip,
+  onOpenSessionModal
 }: {
   isAdmin: boolean;
   agentLevel: "none" | "primary" | "secondary";
@@ -920,6 +935,7 @@ function ProductCards({
   onToggleActive: (productId: string, productName: string, currentActive: boolean, currentNote: string) => void;
   products: CatalogProduct[];
   onHoverTooltip: (tooltip: { text: string; x: number; y: number } | null) => void;
+  onOpenSessionModal: (version: string) => void;
 }) {
   const isUnlocked = agentLevel !== "none";
 
@@ -945,7 +961,7 @@ function ProductCards({
         return (
           <article className={product.active === false ? "product-card is-offline" : "product-card"} key={product.id}>
             <h3 style={{ position: "relative" }}>
-              <ProductName product={product} />
+              <ProductName product={product} onOpenSessionModal={onOpenSessionModal} />
               {!isAdmin && product.active === false && product.offlineNote ? (
                 <div className="offline-overlay">
                   <div className="offline-overlay-ticker">
@@ -1096,14 +1112,65 @@ function ProductCards({
   );
 }
 
-function ProductName({ product }: { product: CatalogProduct }) {
+function ProductName({ 
+  product,
+  onOpenSessionModal 
+}: { 
+  product: CatalogProduct;
+  onOpenSessionModal: (version: string) => void;
+}) {
   const offlineBadge = product.active === false ? <span className="offline-badge">已下架</span> : null;
+  const gptVersion = product.name.includes("GptPro 5x") ? "GptPro 5x" : product.name.includes("GptPro 20x") ? "GptPro 20x" : "";
+
+  const sessionButton = gptVersion ? (
+    <button
+      className="product-session-button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onOpenSessionModal(gptVersion);
+      }}
+      type="button"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "4px 8px",
+        borderRadius: "6px",
+        border: "1px solid #0f766e",
+        background: "#f0fdfa",
+        color: "#0f766e",
+        fontSize: "11px",
+        fontWeight: 700,
+        cursor: "pointer",
+        transition: "all 150ms ease",
+        height: "22px",
+        whiteSpace: "nowrap"
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "#ccfbf1";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "#f0fdfa";
+      }}
+    >
+      获取 Session
+      <FileText className="icon-xs" />
+    </button>
+  ) : null;
 
   if (!product.docUrl) {
     return (
-      <span className="product-entry-name">
-        <span className="product-title-text">{product.name}</span>
-        {offlineBadge}
+      <span className="product-entry">
+        <span className="product-entry-name">
+          <span className="product-title-text">{product.name}</span>
+          {offlineBadge}
+        </span>
+        {sessionButton && (
+          <span className="product-doc-actions" style={{ marginLeft: "8px" }}>
+            {sessionButton}
+          </span>
+        )}
       </span>
     );
   }
@@ -1129,6 +1196,7 @@ function ProductName({ product }: { product: CatalogProduct }) {
         {offlineBadge}
       </span>
       <span className="product-doc-actions">
+        {sessionButton}
         <CopyDocButton name={product.name} url={product.docUrl} />
       </span>
     </span>
@@ -1871,6 +1939,272 @@ function PriceChangeModal({
         </div>,
         document.body
       )}
+    </div>,
+    document.body
+  );
+}
+
+interface GptSessionModalProps {
+  version: string;
+  onClose: () => void;
+  setToast: (msg: string) => void;
+}
+
+function GptSessionModal({ version, onClose, setToast }: GptSessionModalProps) {
+  const [sessionText, setSessionText] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [parsedEmail, setParsedEmail] = useState("");
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsMac(/macintosh|mac os x/i.test(navigator.userAgent));
+    }
+  }, []);
+
+  useEffect(() => {
+    const trimmed = sessionText.trim();
+    if (!trimmed) {
+      setSuccess(false);
+      setParsedEmail("");
+      return;
+    }
+
+    try {
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch {
+        const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        }
+      }
+
+      if (parsed && typeof parsed === "object") {
+        const email = parsed.user?.email || parsed.email || "";
+        setParsedEmail(email);
+        setSuccess(true);
+      }
+    } catch (err) {
+      // ignore parsing errors while user is typing/pasting
+    }
+  }, [sessionText]);
+
+
+  function handleDownload() {
+    if (!sessionText.trim()) return;
+    try {
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(sessionText);
+      } catch {
+        const jsonMatch = sessionText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      }
+      
+      const email = parsed?.user?.email || parsed?.email || "unknown_email";
+      const filename = `${email}+${version}.txt`;
+      const content = parsed ? JSON.stringify(parsed, null, 2) : sessionText;
+      
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setToast(`文件 ${filename} 下载成功！`);
+    } catch {
+      setToast("文件下载失败");
+    }
+  }
+
+  return createPortal(
+    <div aria-modal="true" className="modal-backdrop" role="dialog" style={{ zIndex: 110 }}>
+      <div className="agent-modal" style={{ maxWidth: "480px" }}>
+        <div className="agent-modal-header" style={{ padding: "18px 24px" }}>
+          <div>
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#1e293b", margin: 0 }}>获取 {version} Session</h2>
+            <p style={{ fontSize: "12.5px", color: "#64748b", marginTop: "4px" }}>帮助您快速获取、重命名并复制 Session 发送给客服</p>
+          </div>
+          <button aria-label="关闭" className="modal-close" onClick={onClose} type="button">
+            <X className="icon-xs" />
+          </button>
+        </div>
+
+        <div className="agent-modal-body" style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {/* Step 1 */}
+            <div style={{ display: "flex", gap: "10px" }}>
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                background: "#f1f5f9",
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "#475569",
+                flexShrink: 0
+              }}>1</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#334155" }}>登录 ChatGPT 网页端</p>
+                <a
+                  href="https://chatgpt.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    fontSize: "13px",
+                    color: "#0f766e",
+                    fontWeight: 700,
+                    marginTop: "6px",
+                    textDecoration: "none"
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}
+                >
+                  去登录 ChatGPT 网页端 <ExternalLink style={{ width: "13px", height: "13px" }} />
+                </a>
+                <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#64748b", lineHeight: 1.5 }}>
+                  请确保在当前浏览器已登录您的 ChatGPT 账号。
+                </p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div style={{ display: "flex", gap: "10px" }}>
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                background: "#f1f5f9",
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "#475569",
+                flexShrink: 0
+              }}>2</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#334155" }}>在相同浏览器中复制 Session 数据</p>
+                <a
+                  href="https://chatgpt.com/api/auth/session"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    fontSize: "13px",
+                    color: "#0f766e",
+                    fontWeight: 700,
+                    marginTop: "6px",
+                    textDecoration: "none"
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}
+                >
+                  打开 Session 数据页面 <ExternalLink style={{ width: "13px", height: "13px" }} />
+                </a>
+                <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#64748b", lineHeight: 1.5 }}>
+                  在新标签页中按 <kbd style={{ background: "#f1f5f9", padding: "2px 4px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "11px" }}>{isMac ? "Cmd" : "Ctrl"} + A</kbd> 全选，再按 <kbd style={{ background: "#f1f5f9", padding: "2px 4px", borderRadius: "4px", border: "1px solid #cbd5e1", fontSize: "11px" }}>{isMac ? "Cmd" : "Ctrl"} + C</kbd> 复制页面所有代码。
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div style={{ display: "flex", gap: "10px" }}>
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "22px",
+                height: "22px",
+                borderRadius: "50%",
+                background: "#f1f5f9",
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "#475569",
+                flexShrink: 0
+              }}>3</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: "14px", fontWeight: 600, color: "#334155" }}>粘贴下方，自动为您生成规范 txt 文件</p>
+                <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#64748b", lineHeight: 1.5 }}>
+                  将刚才复制的页面代码粘贴到下方输入框，系统将自动识别邮箱。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: "4px" }}>
+            <textarea
+              onChange={(e) => setSessionText(e.target.value)}
+              placeholder="在此处粘贴复制的页面代码 (Ctrl + V)..."
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontFamily: "monospace",
+                outline: "none",
+                resize: "none",
+                boxSizing: "border-box",
+                background: "#f8fafc"
+              }}
+              value={sessionText}
+            />
+          </div>
+
+          {success && (
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              background: "#f0fdf4",
+              border: "1px solid #bbf7d0",
+              borderRadius: "8px",
+              padding: "12px 14px",
+              color: "#16a34a",
+              fontSize: "13px",
+              lineHeight: 1.5
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+                <Check className="icon-sm" style={{ color: "#16a34a", flexShrink: 0 }} />
+                <span>自动识别成功，已生成 txt 文件！</span>
+              </div>
+              <div style={{ fontSize: "12px", color: "#15803d", paddingLeft: "24px" }}>
+                <div><strong>识别到您的邮箱：</strong>{parsedEmail || "未识别到邮箱"}</div>
+                <div><strong>txt 文件名：</strong>{parsedEmail ? `${parsedEmail}+${version}.txt` : `账号+${version}.txt`}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {sessionText.trim() ? (
+          <div className="agent-modal-actions" style={{ padding: "16px 24px" }}>
+            <button
+              className="button button-primary"
+              onClick={handleDownload}
+              style={{ display: "inline-flex", alignItems: "center", gap: "6px", justifyContent: "center", width: "100%" }}
+              type="button"
+            >
+              <Download style={{ width: "14px", height: "14px" }} />
+              下载 txt 文件
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>,
     document.body
   );
